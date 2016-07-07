@@ -20,7 +20,8 @@ replace_all_pixels = True
 
 # set to true to draw pixel values from a assumed nice gaussian based on noise
 # set to false to replace pixel values with ones randomly drawn from the noise
-use_gaussian = True
+use_gaussian = False
+
 # END FLAGS
 
 
@@ -49,7 +50,11 @@ for img_key in img_data.iterkeys():
         img = img_data[img_key]        
         noise = img[non_src_mask]
         
-        mu = None, sigma = None, len_noise = None    
+        mu = None
+        sigma = None
+        len_noise = None    
+        
+        
         if use_gaussian:
             mu = np.mean(noise)
             sigma = np.sqrt(np.var(noise))
@@ -66,10 +71,66 @@ for img_key in img_data.iterkeys():
         for i in xrange(img.shape[0]):
             for j in xrange(img.shape[1]):
                 if rpl_src_mask[i,j]:
+                    
                     if use_gaussian:                    
                         img[i,j] = normal(loc=mu, scale=sigma)
                     else:
-                        img[i,j] = noise[randint(len_noise)]
+                        img[i,j] = noise[randint(len_noise)]                    
+                    
+                    # idea for using averaging for filling in segmaps                    
+                    
+                    #prev_i = i - 1
+                    #prev_j = j - 1
+                    #post_i = i + 1
+                    #post_j = j + 1
+                
+                    #i_m1 = i - 1 >= 0
+                    #j_m1 = j - 1 >= 0
+                                 
+                    #i_p1 = i + 1 >= 84
+                    #j_p1 = j + 1 >= 84
+                    
+
+                    #pxl_smpl = 0.0
+                    #pxl_count = 0            
+                    
+                    #if i_m1:
+                    #    pxl_smpl += img[prev_i, j]
+                    #    pxl_count += 1
+                        
+                    #    if j_m1:
+                    #        pxl_smpl += img[prev_i, prev_j]
+                    #        pxl_count += 1
+                    #    if j_p1:
+                    #        pxl_smpl += img[prev_i, post_j]
+                    #        pxl_count += 1
+                        
+                    #if i_p1:
+                    #    pxl_smpl += img[post_i, j]
+                    #    pxl_count += 1
+                        
+                    #    if j_m1:
+                    #        pxl_smpl += img[post_i, prev_j]
+                    #       pxl_count += 1
+                    #    if j_p1:
+                    #        pxl_smpl += img[post_i, post_j]
+                    #        pxl_count += 1
+                            
+                    #if j_m1:
+                    #    pxl_smpl += img[i, prev_j]
+                    #    pxl_count += 1
+                    
+                    #if j_p1:
+                    #    pxl_smpl += img[i, post_j]
+                    #    pxl_count += 1
+                        
+                    #avg_smpl = pxl_smpl / float(pxl_count)
+                    #add_noise = normal(loc=0.0, scale=sigma)
+                    
+                    #img[i,j] = avg_smpl + add_noise
+                                        
+                    
+                    
                               
                                   
         # save new file
