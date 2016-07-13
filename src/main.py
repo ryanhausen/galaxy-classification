@@ -12,6 +12,8 @@
 import numpy as np
 from numpy.random import normal, randint
 from astropy.io import fits
+from sklearn.preprocessing import MinMaxScaler
+
 
 # FLAGS
 # set to true to replace all pixels except central source
@@ -49,6 +51,9 @@ for img_key in img_data.iterkeys():
     if img_key != 'segmap':
         img = img_data[img_key]        
         noise = img[non_src_mask]
+        
+        #img_min = np.min(img)
+        #img_max = np.max(img)        
         
         mu = None
         sigma = None
@@ -130,8 +135,8 @@ for img_key in img_data.iterkeys():
                     #img[i,j] = avg_smpl + add_noise
                                         
                     
-                    
-                              
+        #MinMaxScaler(feature_range=(img_min, img_max), copy=False).fit_transform(img)
+        
                                   
         # save new file
         file_dir = output_dir + files[img_key].format(img_id)
