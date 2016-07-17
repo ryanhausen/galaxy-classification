@@ -10,9 +10,8 @@ from copy import deepcopy
 # FLAGS
 # set to true to replace all pixels except central source
 # set to false to replace only the pixels in non-central source segmaps
-replace_all_pixels = True
+replace_all_pixels = False
 # END FLAGS
-
 
 # get image and segmap
 img_dir = '../data/jeyhan/gds2/GDS_deep2_1/'
@@ -25,7 +24,7 @@ files = {'segmap':'GDS_deep2_{}_segmap.fits',
          'h': 'GDS_deep2_{}_h.fits'}
 img_data = {}
 
-img_id = 3882
+img_id = 3518
 
 for f_type in files.iterkeys():
     file_dir = img_dir + files[f_type].format(img_id)
@@ -33,8 +32,6 @@ for f_type in files.iterkeys():
 
 transformed_segmap = transform_segmap([img_data['z'],img_data['v'],img_data['j'],img_data['h']],
                                      img_data['segmap'])
-
-
 
 # get non source pixel locations
 non_src_mask = img_data['segmap'] == 0
@@ -50,7 +47,6 @@ for img_key in img_data.iterkeys():
         trans_noise = trans_img[transformed_mask]
         len_trans_noise = len(trans_noise)
         
-        
         rpl_src_mask = None
         trans_rpl_src_mask = None
         if replace_all_pixels:
@@ -63,9 +59,11 @@ for img_key in img_data.iterkeys():
             trans_rpl_src_mask = np.logical_and(transformed_segmap > 0,
                                                 transformed_segmap != img_id)
         
+        
         for i in xrange(img.shape[0]):
-            for j in xrange(img.shape[1]):
-                if rpl_src_mask[i,j]:
+            for j in xrange(img.shape[1]): 
+                
+                if rpl_src_mask[i,j]:                    
                     img[i,j] = noise[randint(len_noise)]                    
                   
                 if trans_rpl_src_mask[i,j]:
@@ -83,5 +81,5 @@ for img_key in img_data.iterkeys():
         hdu = fits.PrimaryHDU(trans_img)
         hdu.writeto(trans_dir)
 
-seg_dir = output_dir + 'transformed_segmap'
+seg_dir = output_dir + 'transformed_segmap.fits'
 fits.PrimaryHDU(transformed_segmap).writeto(seg_dir)
