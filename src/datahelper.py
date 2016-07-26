@@ -1,46 +1,42 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
 import pandas as pd
+import numpy as np
+from random import shuffle
+from astropy.io import fits
 
 class DataHelper(object):
     """
-    Class to get data in a nn friendly format.
-
-
+    Provides shuffling and batches for the neural net
     """    
     
-    def __init__(self, shuffle=True, data_dir='../data/'):
+    def __init__(self, 
+                 batch_size=15, 
+                 test_size=0.2, 
+                 shuffle_train=True, 
+                 data_dir='../data'):
+        self._batch_size = batch_size
         self._shuffle = shuffle
-        self._data_dir = data_dir        
+        self._imgs_dir = os.path.join(data_dir, 'imgs')
+        self._imgs_list = os.listdir(self._imgs_dir)
+        self._lbls = pd.read_csv(os.path.join(data_dir,'labels/labels.csv'))
+        self._idx = 0        
         
-        self._lbls = self._load_labels(os.path.join(data_dir,'labels/table3csv'))
-        self._sources = self._distinct_sources(data_dir)
+        num_test_examples = int(len(self._imgs_list) * test_size)
         
-    def _load_labels(table3dat_file):
-        cols = ['Depth','Area','ID','RAdeg','DEdeg','Seq','Hmag','NCl','Sph','Dk',
-                'Ir','DS','DI','DSI','PS','UnCl','M','Int1','Int2','Comp','NoInt',
-                'Int','C0P0','C1P0','C2P0','C0P1','C1P1','C2P1','C0P2','C1P2','C2P2',
-                'Dbl','ImgQ','Unc','FlagV','Flagz','FlagJ','TArms','Db','Asym','Sp',
-                'Bar','PSc','edge','face','Tp','Ch','DkD','Bg']
+        # we want to use the same test images every time so they are set 
+        # aside before the shuffle
+        self._test_imgs = self._imgs_list[:(-1 * num_test_examples)]
+        self._train_imgs = self._imgs_list[:num_test_examples]        
                 
-        labels = pd.read_csv(table3dat_file, sep=',', names=cols, index_col=False)
+        if shuffle_train:
+            shuffle(self._train_imgs)
         
-        return labels
         
-    def _distinct_sources(self, data_dir):
-        sources = {}
-
-        for f in os.listdir(data_dir):
-            new_dir = os.path.join(data_dir,f)
-            if os.path.isdir(new_dir):
-                sources.update(self._distinct_sources(new_dir))
-            else:
-                match = re.search('[a-z]+\d_\d+_', f)
-                if match and match.group(0)[:-1] not in sources:
-                    sources[match.group(0)[:-1]] = data_dir
-
-        return sources
-
-    # TODO methods for access
+    def get_next_batch(self, train=True):
+        if train:        
+            end_idx = self._idx + self._batch_size
+            sources = self._train_imgs[self._idx:end_idx]
+            return np.array([fits.getdata(i) for i in sources])
+        

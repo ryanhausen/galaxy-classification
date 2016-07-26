@@ -12,6 +12,8 @@ def extract_from_table2(path_to_file, save_new_file=None):
     path_to_file = path to table2.dat
     save_new_file = path to have transformed file save to, if is set to None 
                     then it doesn't save new table to a text file
+                    
+    returns: pandas dataframe with percentages per each class for each ID
     """    
 
     # the .dat file prefixes the value of '2epoch' in the depth column with
@@ -39,7 +41,7 @@ def extract_from_table2(path_to_file, save_new_file=None):
     # bring in data
     tbl2 = pd.read_csv(tmp_file, delim_whitespace=True, names=cols)
     
-        #clean up
+    #clean up
     os.remove(tmp_file)    
     
     #filter out all but the morphology classes

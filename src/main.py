@@ -1,85 +1,121 @@
-# -*- coding: utf-8 -*-
+from datahelper import DataHelper
+from network import CandleNet
+from math import sqrt
+import time
 
-# imports
-import numpy as np
-from numpy.random import randint
-from astropy.io import fits
-from segmap import transform_segmap
-from copy import deepcopy
+import tensorflow as tf
 
-# FLAGS
-# set to true to replace all pixels except central source
-# set to false to replace only the pixels in non-central source segmaps
-replace_all_pixels = False
-# END FLAGS
+batch_size = 50
+test_size = 0.2
+test_size = 1
+display_step = 100
+n_classes = 5
+learning_rate = .0001
+momentum = 0.9
+model_dir = './models/'
+train_progress = './report/train_progress.csv'
+test_progress = './report/test_progress.csv'
 
-# get image and segmap
-img_dir = '../data/jeyhan/gds2/GDS_deep2_1/'
-output_dir = '../data/'
+train = True
+checkpoint_dir = './models/'
 
-files = {'segmap':'GDS_deep2_{}_segmap.fits',
-         'z': 'GDS_deep2_{}_z.fits',
-         'v': 'GDS_deep2_{}_v.fits',
-         'j': 'GDS_deep2_{}_j.fits',
-         'h': 'GDS_deep2_{}_h.fits'}
-img_data = {}
+#input
+x = tf.placeholder(tf.float32, [batch_size, 84,84,4])
+y = tf.placeholder(tf.float32, [None, n_classes])
 
-img_id = 3518
+net = CandleNet.get_network(x)
 
-for f_type in files.iterkeys():
-    file_dir = img_dir + files[f_type].format(img_id)
-    img_data[f_type] = fits.getdata(file_dir)
+cost = tf.reduce_mean(tf.squared_difference(net, y))
 
-transformed_segmap = transform_segmap([img_data['z'],img_data['v'],img_data['j'],img_data['h']],
-                                     img_data['segmap'])
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-# get non source pixel locations
-non_src_mask = img_data['segmap'] == 0
-transformed_mask = transformed_segmap == 0
+rmse = tf.sqrt(tf.reduce_mean(tf.squared_differnce(net,y)))
 
-for img_key in img_data.iterkeys():
-    if img_key != 'segmap':
-        img = img_data[img_key]     
-        noise = img[non_src_mask]  
-        len_noise = len(noise)
-        
-        trans_img = deepcopy(img)               
-        trans_noise = trans_img[transformed_mask]
-        len_trans_noise = len(trans_noise)
-        
-        rpl_src_mask = None
-        trans_rpl_src_mask = None
-        if replace_all_pixels:
-            rpl_src_mask = img_data['segmap'] != img_id
-            trans_rpl_src_mask = transformed_segmap != img_id
+init = tf.initialize_all_variables()
+
+saver = tf.train.Saver()
+
+# train, test, and save model
+with tf.Session() as sess:
+    sess.run(init)
+
+    if train:
+        # train
+        epoch = 1
+        while True:  # epoch <= epochs:
+            epoch_start = time.time()
+            print 'Training Epoch {}...'.format(epoch)
+            # get data, test_idx = 19000 is ~83% train test split
+            dh = DataHelper(batch_size, test_size)
+            # test data
+            test_data, test_labels = dh.get_test_data(test_size)
+
+            step = 1
+            while step * batch_size < test_split:
+                batch_xs, batch_ys = dh.get_next_batch()
+
+                sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys})
+
+                if step % display_step == 0:
+                    acc = sess.run(rmse, feed_dict={x: batch_xs, y: batch_ys})
+                    loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys})
+
+                    print "Iter " + str(step * batch_size) + \
+                          ", Minibatch Loss= " + "{:.6f}".format(loss) + \
+                          ", Training RMSE= " + "{:.5f}".format(acc)
+
+                    with open(train_progress, mode='a') as f:
+                        f.write('{},{},{},{}\n'.format(epoch,
+                                                       (step * batch_size),
+                                                       acc,
+                                                       loss))
+
+                step += 1
+
+            print 'Saving checkpoint'
+            saver.save(sess, model_dir, global_step=epoch)
+            print 'Epoch {} finished'.format(epoch)
+
+            print 'Testing...'
+            # test
+            test_step = 1
+            test_rmse = 0.0
+            while test_step * batch_size < test_size:
+                start = (test_step - 1) * batch_size
+                end = test_step * batch_size
+                batch_xs = test_data[start:end]
+                batch_ys = test_labels[start:end]
+
+                _rmse = sess.run(rmse, feed_dict={x: batch_xs, y: batch_ys})
+                _rmse = pow(_rmse, 2) * batch_size
+                test_rmse += _rmse
+
+                test_step += 1
+
+            test_rmse = sqrt(test_rmse / float(test_size))
+            print 'Test RMSE:{}'.format(test_rmse)
+
+            with open('./report/test_progress.csv', mode='a') as f:
+                f.write('{},{}\n'.format(epoch, test_rmse))
+
+            if test_rmse < target_acc:
+                break
+
+            print 'Time for epoch {}'.format(time.time() - epoch_start)
+
+            epoch += 1
+    else:
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+
+        dh = DataHelper(batch_size, test_idx=test_split)
+
+        if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(sess, ckpt.model_checkpoint_path)
         else:
-            rpl_src_mask = np.logical_and(img_data['segmap'] > 0,
-                                          img_data['segmap'] != img_id)
-            
-            trans_rpl_src_mask = np.logical_and(transformed_segmap > 0,
-                                                transformed_segmap != img_id)
-        
-        
-        for i in xrange(img.shape[0]):
-            for j in xrange(img.shape[1]): 
-                
-                if rpl_src_mask[i,j]:                    
-                    img[i,j] = noise[randint(len_noise)]                    
-                  
-                if trans_rpl_src_mask[i,j]:
-                    trans_img[i,j] = trans_noise[randint(len_trans_noise)]
-                  
-                  
-                
-        file_dir = output_dir + 'ORIG_' + files[img_key].format(img_id)
-         
-        hdu = fits.PrimaryHDU(img)
-        hdu.writeto(file_dir)
-        
-        trans_dir = output_dir + 'NEW_' + files[img_key].format(img_id)       
-        
-        hdu = fits.PrimaryHDU(trans_img)
-        hdu.writeto(trans_dir)
+            print 'no checkpoint found...'
 
-seg_dir = output_dir + 'transformed_segmap.fits'
-fits.PrimaryHDU(transformed_segmap).writeto(seg_dir)
+        batch_xs, _ = dh.get_next_batch()
+
+        predictions = sess.run(net, feed_dict={x: batch_xs})
+
+        print predictions

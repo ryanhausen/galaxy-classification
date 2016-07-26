@@ -1,0 +1,54 @@
+In this directory are the tiny tim psf models used to replace the noise in
+the images after the other sources were removed.
+
+We use the distorted psf's
+
+Tiny Tim
+http://www.stsci.edu/hst/observatory/focus/TinyTim
+
+
+H Band
+Parameters
+	
+Camera 	WFC3 IR channel
+Pixel Position 	512 512
+Filter 	F160W
+Spectrumtype 	Power law : F(lambda) = lambda^i
+Spectrumvalue 	-2
+PSF diameter 	3.0 [arcsec]
+Focus 	0.0 [microns secondary mirror despace] 
+
+J Band
+Parameters
+	
+Camera 	WFC3 IR channel
+Pixel Position 	512 512
+Filter 	F125W
+Spectrumtype 	Power law : F(lambda) = lambda^i
+Spectrumvalue 	-2
+PSF diameter 	3.0 [arcsec]
+Focus 	0.0 [microns secondary mirror despace] 
+
+v Band
+Parameters
+	
+Camera 	ACS - Wide Field Channel
+Chip 	1
+Pixel Position 	512 512
+Filter 	F606W
+Spectrumtype 	Power law : F(lambda) = lambda^i
+Spectrumvalue 	-2
+PSF diameter 	3.0 [arcsec]
+Focus 	0.0 [microns secondary mirror despace]
+
+z Band
+Parameters
+	
+Camera 	ACS - Wide Field Channel
+Chip 	1
+Pixel Position 	512 512
+Filter 	F850LP
+Spectrumtype 	Power law : F(lambda) = lambda^i
+Spectrumvalue 	-2
+PSF diameter 	3.0 [arcsec]
+Focus 	0.0 [microns secondary mirror despace]
