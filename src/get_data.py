@@ -69,6 +69,17 @@ def _distinct_sources(data_dir):
 
     return sources
 
+def _new_dir(root, new):
+    new_dir = os.path.join(root, new)
+    if new not in os.listdir(root):
+        os.mkdir(new_dir)
+        
+    return new_dir
+
+def _simple_log(val):
+    with open('./log', 'a') as f:
+        f.write(val + '\n')
+
 # Helpers ---------------------------------------------------------------------
 
 
@@ -78,21 +89,16 @@ start = time.time()
 
 # this dir should always exist until I find a way to get TinyTim data
 if False:
-    data_dir = '../data'
-    if 'data' not in os.listdir('../'):
-        os.mkdir(data_dir)
+    data_dir = _new_dir('../','data')
     
     # tmp dir for the raw files
-    tmp_dir = os.path.join(data_dir, 'tmp')
-    if 'tmp' not in os.listdir(data_dir):
-        os.mkdir(tmp_dir)
+    tmp_dir = _new_dir(data_dir, 'tmp')
     
-    if False:
-        # put all the raw data in the tmp directory
-        _get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
-    
-        # unpack all the tarballs
-        _unpack_dir(tmp_dir)
+    # put all the raw data in the tmp directory
+    _get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
+
+    # unpack all the tarballs
+    _unpack_dir(tmp_dir)
     
     # get the distinct image names
     sources =  _distinct_sources(tmp_dir)
@@ -123,10 +129,15 @@ for s in sources.iterkeys():
     try:
         for b in bands:
             i_dir = os.path.join(s_dir, f_format.format(s, b))
-            imgs[b] = fits.getdata(i_dir)
+            raw_img = fits.getdata(i_dir)                        
+            
+            # some imgs are bigger than 84x84 so we shrink them            
+            
+            
+            imgs[b] = raw_img
     except Exception:
-        print 'could not load all filters for {}'.format(s)
-        break
+        err = '{} not included because all filters could not be loaded'
+        _simple_log(err.format(s))
         continue
 
     segmap = s_hlpr.transform_segmap(imgs.values(), segmap)    

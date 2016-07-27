@@ -13,6 +13,7 @@ class CandleNet:
 
         # https://www.tensorflow.org/versions/r0.8/api_docs/python/nn.html#conv2d
         def conv2d(img, w, b):
+            
             x = tf.nn.conv2d(img, w, strides=[1, 1, 1, 1], padding='VALID')
             z = tf.nn.bias_add(x, b)
             return tf.nn.relu(z)
@@ -80,7 +81,7 @@ class CandleNet:
             # 3x3 conv, 128-channel inputs, 128-channel outputs
             'wc4': tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.1)),
             # fully connected, 512 inputs, 2048 outputs
-            'wf1': tf.Variable(tf.truncated_normal([512, 2048], stddev=0.001)),
+            'wf1': tf.Variable(tf.truncated_normal([4608, 2048], stddev=0.001)),
             # fully coneected 2048 inputs, 2048 outputs
             'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)),
             # 2048 inputs, 5 outputs (class prediction)

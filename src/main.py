@@ -12,12 +12,12 @@ display_step = 100
 n_classes = 5
 learning_rate = .0001
 momentum = 0.9
-model_dir = './models/'
-train_progress = './report/train_progress.csv'
-test_progress = './report/test_progress.csv'
+model_dir = '../models/'
+train_progress = '../report/train_progress.csv'
+test_progress = '../report/test_progress.csv'
 
 train = True
-checkpoint_dir = './models/'
+checkpoint_dir = '../models/'
 
 #input
 x = tf.placeholder(tf.float32, [batch_size, 84,84,4])
@@ -29,7 +29,7 @@ cost = tf.reduce_mean(tf.squared_difference(net, y))
 
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-rmse = tf.sqrt(tf.reduce_mean(tf.squared_differnce(net,y)))
+rmse = tf.sqrt(tf.reduce_mean(tf.squared_difference(net,y)))
 
 init = tf.initialize_all_variables()
 
@@ -47,11 +47,9 @@ with tf.Session() as sess:
             print 'Training Epoch {}...'.format(epoch)
             # get data, test_idx = 19000 is ~83% train test split
             dh = DataHelper(batch_size, test_size)
-            # test data
-            test_data, test_labels = dh.get_test_data(test_size)
 
             step = 1
-            while step * batch_size < test_split:
+            while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
 
                 sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys})
@@ -80,11 +78,11 @@ with tf.Session() as sess:
             # test
             test_step = 1
             test_rmse = 0.0
-            while test_step * batch_size < test_size:
+            while dh.testing:
                 start = (test_step - 1) * batch_size
                 end = test_step * batch_size
-                batch_xs = test_data[start:end]
-                batch_ys = test_labels[start:end]
+                batch_xs, batch_ys= dh.get_next_batch()
+                 
 
                 _rmse = sess.run(rmse, feed_dict={x: batch_xs, y: batch_ys})
                 _rmse = pow(_rmse, 2) * batch_size
@@ -98,16 +96,13 @@ with tf.Session() as sess:
             with open('./report/test_progress.csv', mode='a') as f:
                 f.write('{},{}\n'.format(epoch, test_rmse))
 
-            if test_rmse < target_acc:
-                break
-
             print 'Time for epoch {}'.format(time.time() - epoch_start)
 
             epoch += 1
     else:
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 
-        dh = DataHelper(batch_size, test_idx=test_split)
+        dh = DataHelper(batch_size, test_size)
 
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(sess, ckpt.model_checkpoint_path)

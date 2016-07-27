@@ -21,7 +21,10 @@ class DataHelper(object):
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
         self._lbls = pd.read_csv(os.path.join(data_dir,'labels/labels.csv'))
+        self._lbl_cols = ['ClSph', 'ClDk', 'ClIr', 'ClPS', 'ClUn']
         self._idx = 0        
+        self.training = True        
+        self.testing = False        
         
         num_test_examples = int(len(self._imgs_list) * test_size)
         
@@ -38,5 +41,38 @@ class DataHelper(object):
         if train:        
             end_idx = self._idx + self._batch_size
             sources = self._train_imgs[self._idx:end_idx]
-            return np.array([fits.getdata(i) for i in sources])
-        
+            
+            print sources            
+            
+            x = [fits.getdata(os.path.join(self._imgs_dir,i)) for i in sources]
+            for i in x:
+                print 'type: {}, shape: {}'.format(type(i), np.shape(i))
+            x = np.array(x)
+            y = np.array([self._lbls.loc[self._lbls['ID']== ('GDS_'+i[:-4]),self._lbl_cols] for i in sources])
+            
+            print np.shape(x)            
+            print np.shape(y)            
+            
+            if end_idx >= len(self._train_imgs):
+                self.training = False
+                self.testing = True
+                self._idx = 0
+            else:
+                self._idx = end_idx
+            
+            return (x, y)
+        else:
+            end_idx = self._idx + self._batch_size
+            sources = self._test_imgs[self._idx:end_idx]
+                        
+            x = np.array([fits.getdata(os.path.join(self._imgs_dir,i)) for i in sources])
+            y = np.array([self._lbls.loc['ID'== ('GDS_'+i),self._lbl_cols].data for i in sources])
+            
+            if end_idx >= len(self._test_imgs):            
+                self.testing = False
+            else:
+                self._idx = end_idx
+            
+            return (x, y)
+            
+    # TODO reset training method
