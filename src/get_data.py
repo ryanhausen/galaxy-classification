@@ -88,30 +88,29 @@ start = time.time()
 # DATA ------------------------------------------------------------------------
 
 # this dir should always exist until I find a way to get TinyTim data
-if False:
-    data_dir = _new_dir('../','data')
-    
-    # tmp dir for the raw files
-    tmp_dir = _new_dir(data_dir, 'tmp')
-    
-    # put all the raw data in the tmp directory
-    _get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
+data_dir = _new_dir('../','data')
 
-    # unpack all the tarballs
-    _unpack_dir(tmp_dir)
-    
-    # get the distinct image names
-    sources =  _distinct_sources(tmp_dir)
-    
-    # Apply preprocessing to the images and save them to imgs 
-    f_format = 'GDS_{}_{}.fits'
-    bands = ['h','j','v','z']
-    
-    tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}
-    
-    imgs_dir = os.path.join(data_dir, 'imgs')    
-    if 'imgs' not in os.listdir(data_dir):
-        os.mkdir(imgs_dir)    
+# tmp dir for the raw files
+tmp_dir = _new_dir(data_dir, 'tmp')
+
+# put all the raw data in the tmp directory
+_get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
+
+# unpack all the tarballs
+_unpack_dir(tmp_dir)
+
+# get the distinct image names
+sources =  _distinct_sources(tmp_dir)
+
+# Apply preprocessing to the images and save them to imgs 
+f_format = 'GDS_{}_{}.fits'
+bands = ['h','j','v','z']
+
+tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}
+
+imgs_dir = os.path.join(data_dir, 'imgs')    
+if 'imgs' not in os.listdir(data_dir):
+    os.mkdir(imgs_dir)    
 
 img_count = 1
 img_total = len(sources)
@@ -151,6 +150,33 @@ for s in sources.iterkeys():
 
     cmb_dir = os.path.join(imgs_dir, '{}.fits'.format(s))
     fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
+
+#def process_source(kvp):
+#    f_format = 'GDS_{}_{}.fits'
+#    bands = ['h','j','v','z']
+#    s, s_dir = kvp
+#    
+#    seg_dir = os.path.join(s_dir, f_format.format(s, 'segmap'))
+#    segmap = fits.getdata(seg_dir)
+#    
+#    imgs = {}
+#    
+#    err = False
+#    msg = ''
+#    try:
+#        for b in bands:
+#            i_dir = os.path.join(s_dir, f_format.format(s, b))
+#            raw_img = fits.getdata(i_dir)  
+#
+#            
+#    
+#            imgs[b] = raw_img
+#    except Exception as e:
+#        err = True
+#        if e.args
+#        msg = '{} not included because all filters could not be loaded'.format(s)
+#        
+#        
 
 # clean up
 rmtree(tmp_dir, ignore_errors=True)
