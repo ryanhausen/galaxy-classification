@@ -84,9 +84,8 @@ def _simple_log(val):
 def _fits_in_square(seg, src_id):
     dim1, dim2 = np.shape(seg)    
     
-    
     min_1, max_1 = (dim1+1,-1)
-    min_2, max_2 = (dim2+1,-1)
+    min_2, max_2 = (dim2+1,-1)    
     
     for d1 in range(dim1):
         for d2 in range(dim2):
@@ -100,19 +99,23 @@ def _fits_in_square(seg, src_id):
                     min_2 = d2
                 elif d2 > max_2:
                     max_2 = d2
-                    
+    
     diff_1 = max_1 - min_1
-    diff_2 = max_2 - min_2
+    diff_2 = max_2 - min_2  
+
+        
     # the image is too big too fit within our constraints
     if diff_1 > 83 or diff_2 > 83:
         return None
     # pad the area to make it 84x84
     else:
-        def parse_diffs(diff, mn, mx):
+        def parse_diffs(dim, diff, mn, mx):
+            mx_val = dim-1            
+            
             if diff % 2 == 0:
-                pad = diff / 2
+                pad = (84-diff) / 2
     
-                mx_too_big = mx + pad > 83
+                mx_too_big = mx + pad > mx_val
                 mn_too_small = mn - pad < 0
     
                 # we need to know which order to adjust the pad in
@@ -124,8 +127,8 @@ def _fits_in_square(seg, src_id):
                    mx += pad
                    
                 elif mx_too_big:
-                   pad += (pad + mx) - 83
-                   mx = 83
+                   pad += (pad + mx) - mx_val
+                   mx = mx_val
                    
                    mn -= pad
                 
@@ -134,10 +137,10 @@ def _fits_in_square(seg, src_id):
                     mx += pad
                 
             else:
-                pad_1, pad_2 = (diff / 2, diff / 2 + 1)
+                pad_1, pad_2 = (((84-diff) / 2), (((84-diff) / 2) + 1))
                 
-                mx_too_big = mx + pad_2 > 83
                 mn_too_small = mn - pad_1 < 0
+                mx_too_big = mx + pad_2 > mx_val
                 
                 if mn_too_small:
                     pad_2 += (pad_1 - mn) * (-1)
@@ -145,8 +148,8 @@ def _fits_in_square(seg, src_id):
                     
                     mx += pad_2
                 elif mx_too_big:
-                    pad_1 += (pad_2 + mx) - 83
-                    mx = 83
+                    pad_1 += (pad_2 + mx) - mx_val
+                    mx = mx_val
                     
                     mn -= pad_1
                 else:
@@ -155,11 +158,8 @@ def _fits_in_square(seg, src_id):
             
             return (mn, mx)
             
-        min_1, max_1 = parse_diffs(diff_1, min_1, max_1)
-        min_2, max_2 = parse_diffs(diff_2, min_2, max_2)
-        
-        
-            
+        min_1, max_1 = parse_diffs(dim1, diff_1, min_1, max_1)
+        min_2, max_2 = parse_diffs(dim2, diff_2, min_2, max_2)  
         
         return (min_1, max_1, min_2, max_2)
         
@@ -217,31 +217,67 @@ for s in sources.iterkeys():
     pad_help = None    
     
     # if our image is not 84x84
-    dim = np.shape(segmap)[0]
-    if dim != 84:
+    dim1, dim2 = np.shape(segmap)
+    if dim1 != 84 or dim2 != 84:
         # we need pad the edges to pad the with the correct noise will 
         # add '1' pixels to emulate a non central source
-        if dim < 84:
+        if dim1 < 84 or dim2 < 84:
+            _simple_log('{} needs to be padded: {}'.format(s, np.shape(segmap)))            
+                        
             pad = True
 
-            pad_help = 84 - dim
+            if dim1 < 84:
+                diff_1 = 84 - dim1
+                
+                if diff_1 % 2 == 0:
+                    pad_dim  = diff_1 / 2
 
-            d1_pad = np.ones((pad_help,dim))
-            d2_pad = np.ones((84,pad_help))
+                    pad_1 = np.ones((pad_dim, dim2))
+                    segmap = np.append(pad_1, segmap, axis=0)
+                    segmap = np.append(segmap, pad_1, axis=0)                                        
+                else:
+                    pad_dim1, pad_dim2 = ((diff_1 / 2), (diff_1 / 2 + 1))
+                
+                    pad_1 = np.ones((pad_dim1, dim2))
+                    segmap = np.append(pad_1, segmap, axis=0)
+
+                    pad_1 = np.ones((pad_dim2, dim2))
+                    segmap = np.append(segmap, pad_1, axis=0)
             
-            segmap = np.append(segmap, d1_pad)
-            segmap = np.append(segmap, d2_pad)
+            # reset the dimension variables jsut incase we padded in dim1
+            dim1, dim2 = np.shape(segmap)            
             
+            if dim2 < 84:
+                diff_2 = 84 - dim2
+                
+                if diff_2 % 2 == 0:
+                    pad_dim  = diff_2 / 2
+
+                    pad_2 = np.ones((dim1, pad_dim))
+                    segmap = np.append(pad_2, segmap, axis=1)
+                    segmap = np.append(segmap, pad_2, axis=1)                                        
+                else:
+                    pad_dim1, pad_dim2 = ((diff_2 / 2), (diff_2 / 2 + 1))
+                
+                    pad_2 = np.ones((dim1, pad_dim1))
+                    segmap = np.append(pad_2, segmap, axis=1)
+
+                    pad_2 = np.ones((dim1, pad_dim2))
+                    segmap = np.append(segmap, pad_2, axis=1)
             
-            
+            _simple_log('{} padding complete: {}'.format(s, np.shape(segmap)))
         else:
+            _simple_log('{} needs to be cropped: {}'.format(s, np.shape(segmap)))            
+            
+            
             crop_help = _fits_in_square(segmap,img_id)
             if crop_help:
                 crop = True
                 
                 d1_mn, d1_mx, d2_mn, d2_mx = crop_help                
                 segmap = segmap[d1_mn:d1_mx, d2_mn:d2_mx]
-            else:
+                _simple_log('{} cropping complete: {}'.format(s, np.shape(segmap)))
+            else:        
                 valid_img = False
     
     if not valid_img:
@@ -256,20 +292,53 @@ for s in sources.iterkeys():
             raw_img = fits.getdata(i_dir)                        
             
             if crop:
-                _simple_log('cropping {} band {}'.format(s,b))
                 d1_mn, d1_mx, d2_mn, d2_mx = crop_help
                 # crop image 
                 raw_img = raw_img[d1_mn:d1_mx, d2_mn:d2_mx]                
             elif pad:
-                # pad with 0's it doesn't matter what the value is, as the 
-                # img transformer will replace it with random noise
-                _simple_log('padding {} band {}'.format(s, b))                
+                # pad with 1's it doesn't matter what the value is, as the 
+                # img transformer will replace it with random noise             
                 
-                d1_pad = np.ones((pad_help,dim))
-                d2_pad = np.ones((84,pad_help))
+                dim1, dim2 = np.shape(raw_img)                
                 
-                raw_img = np.append(d1_pad)
-                raw_img = np.append(d2_pad)
+                if dim1 < 84:
+                    diff_1 = 84 - dim1
+                
+                    if diff_1 % 2 == 0:
+                        pad_dim  = diff_1 / 2
+    
+                        pad_1 = np.ones((pad_dim, dim2))
+                        raw_img = np.append(pad_1, raw_img, axis=0)
+                        raw_img = np.append(raw_img, pad_1, axis=0)                                        
+                    else:
+                        pad_dim1, pad_dim2 = ((diff_1 / 2), (diff_1 / 2 + 1))
+                    
+                        pad_1 = np.ones((pad_dim1, dim2))
+                        raw_img = np.append(pad_1, raw_img, axis=0)
+    
+                        pad_1 = np.ones((pad_dim2, dim2))
+                        raw_img = np.append(raw_img, pad_1, axis=0)
+            
+                # reset the dimension variables jsut incase we padded in dim1
+                dim1, dim2 = np.shape(raw_img)            
+                
+                if dim2 < 84:
+                    diff_2 = 84 - dim2
+                    
+                    if diff_2 % 2 == 0:
+                        pad_dim  = diff_2 / 2
+    
+                        pad_2 = np.ones((dim1, pad_dim))
+                        raw_img = np.append(pad_2, raw_img, axis=1)
+                        raw_img = np.append(raw_img, pad_2, axis=1)                                        
+                    else:
+                        pad_dim1, pad_dim2 = ((diff_2 / 2), (diff_2 / 2 + 1))
+                    
+                        pad_2 = np.ones((dim1, pad_dim1))
+                        raw_img = np.append(pad_2, raw_img, axis=1)
+    
+                        pad_2 = np.ones((dim1, pad_dim2))
+                        raw_img = np.append(raw_img, pad_2, axis=1)
 
             imgs[b] = raw_img
     except Exception:
