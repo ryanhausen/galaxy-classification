@@ -14,6 +14,7 @@ from shutil import rmtree
 import fcntl
 
 from multiprocessing import Pool
+from itertools import repeat
 
 # third party libs
 from astropy.io import fits
@@ -28,6 +29,8 @@ data_ftp_url = 'ftp.noao.edu'
 data_ftp_dir = 'pub/jeyhan/candels/gds2/'
 labels_ftp_url = 'cdsarc.u-strasbg.fr'
 labels_ftp_dir = 'pub/cats/J/ApJS/221/11'
+
+RUN_PARALLEL = True
 
 # Helpers ---------------------------------------------------------------------
 def _get_ftp(url, location, path=None):
@@ -85,6 +88,13 @@ def _simple_log(val):
         f.write(val + '\n')
         fcntl.flock(f, fcntl.LOCK_UN)
 
+def _simple_log_lines(vals):
+    with open('./log', 'a') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        for val in vals:        
+            f.write(val + '\n')
+        fcntl.flock(f, fcntl.LOCK_UN)
+
 # if an image is larger than 84x84 we need to see if we can crop it down
 def _fits_in_square(seg, src_id):
     dim1, dim2 = np.shape(seg)    
@@ -105,16 +115,16 @@ def _fits_in_square(seg, src_id):
                 elif d2 > max_2:
                     max_2 = d2
     
+    
     diff_1 = max_1 - min_1
     diff_2 = max_2 - min_2  
-
-        
+ 
     # the image is too big too fit within our constraints
-    if diff_1 > 83 or diff_2 > 83:
+    if diff_1 > 84 or diff_2 > 84:
         return None
     # pad the area to make it 84x84
     else:
-        def parse_diffs(dim, diff, mn, mx):
+        def parse_diffs(dim, diff, mn, mx):                        
             mx_val = dim-1            
             
             if diff % 2 == 0:
@@ -126,7 +136,7 @@ def _fits_in_square(seg, src_id):
                 # we need to know which order to adjust the pad in
     
                 if mn_too_small:
-                   pad += (pad - mn) * (-1)
+                   pad += abs(pad - mn)
                    mn = 0
                    
                    mx += pad
@@ -148,7 +158,7 @@ def _fits_in_square(seg, src_id):
                 mx_too_big = mx + pad_2 > mx_val
                 
                 if mn_too_small:
-                    pad_2 += (pad_1 - mn) * (-1)
+                    pad_2 += abs(pad_1 - mn)
                     mn = 0
                     
                     mx += pad_2
@@ -165,54 +175,160 @@ def _fits_in_square(seg, src_id):
             
         min_1, max_1 = parse_diffs(dim1, diff_1, min_1, max_1)
         min_2, max_2 = parse_diffs(dim2, diff_2, min_2, max_2)  
-        
+    
         return (min_1, max_1, min_2, max_2)
     
-def _pad_image(img):
-    dim1, dim2 = np.shape(img)    
+def _pad_dim(img, axs):
+    dims = list(np.shape(img))
+    dim = dims[axs]
     
-    if dim1 < 84:
-        diff_1 = 84 - dim1
-        
-        if diff_1 % 2 == 0:
-            pad_dim  = diff_1 / 2
-
-            pad_1 = np.ones((pad_dim, dim2))
-            img = np.append(pad_1, img, axis=0)
-            img = np.append(img, pad_1, axis=0)                                        
-        else:
-            pad_dim1, pad_dim2 = ((diff_1 / 2), (diff_1 / 2 + 1))
-        
-            pad_1 = np.ones((pad_dim1, dim2))
-            img = np.append(pad_1, img, axis=0)
-
-            pad_1 = np.ones((pad_dim2, dim2))
-            img = np.append(img, pad_1, axis=0)
+    diff = 84 - dim
     
-    # reset the dimension variables jsut incase we padded in dim1
-    dim1, dim2 = np.shape(img)            
-    
-    if dim2 < 84:
-        diff_2 = 84 - dim2
+    if diff % 2 == 0:
+        dims[axs] = diff / 2
         
-        if diff_2 % 2 == 0:
-            pad_dim  = diff_2 / 2
+        pad = np.ones(tuple(dims))
+        img = np.append(pad, img, axis=axs)
+        img = np.append(img, pad, axis=axs)
+    else:
+       dims[axs] = diff / 2
+       
+       pad = np.ones(tuple(dims))
+       img = np.append(pad, img, axis=axs)
+       
+       dims[axs] = diff / 2 + 1
+       
+       pad = np.ones(tuple(dims))
+       img = np.append(img, pad, axis=axs)
 
-            pad_2 = np.ones((dim1, pad_dim))
-            img = np.append(pad_2, img, axis=1)
-            img = np.append(img, pad_2, axis=1)                                        
-        else:
-            pad_dim1, pad_dim2 = ((diff_2 / 2), (diff_2 / 2 + 1))
-        
-            pad_2 = np.ones((dim1, pad_dim1))
-            img = np.append(pad_2, img, axis=1)
-
-            pad_2 = np.ones((dim1, pad_dim2))
-            img = np.append(img, pad_2, axis=1)
-    
     return img
     
+def process_image(args):
+    kvp, tinytims = args
+    s, s_dir = kvp
+    print s
     
+    img_id = int(s[(s.index('_')+1):])    
+    
+    to_dir = '../data/imgs'        
+    f_format = 'GDS_{}_{}.fits'
+    bands = ['h','j','v','z']
+
+    # log messages
+    # TODO use an acutal logging library    
+    msgs = []
+    m_pad = '{} {} needs pad'
+    m_crop = '{} {} needs crop'
+    m_skip = '{} skipped: dimensions are too large and the segmap will not fit'
+    m_shp =  'from {} new shape {}'  
+    m_filt = '{} not included because all filters could not be loaded'
+
+
+    # SEGMAP ------------------------------------------------------------------
+    seg_dir = os.path.join(s_dir, f_format.format(s, 'segmap'))
+    segmap = fits.getdata(seg_dir)
+
+    crop_help_d1 = None 
+    crop_help_d2 = None
+    edited = False    
+
+    dim1, dim2 = np.shape(segmap)  
+    
+    # if the dimension is smaller than 84 we need to pad the edges up to 84
+    if dim1 < 84:               
+        msgs.append(m_pad.format(s, 'dim1'))
+        edited = True
+        segmap = _pad_dim(segmap, 0)           
+    
+    # if the dimension is larger than 84 we need to crop the image down to 84
+    elif dim1 > 84:
+        msgs.append(m_crop.format(s, 'dim1'))
+        edited = True
+        crop_help_d1 = _fits_in_square(segmap, img_id)
+        
+        # it possible that only one dimension needs to be cropped to only adjust
+        # the dimnsion we are dealing with
+        if crop_help_d1:
+            mn, mx, _, _ = crop_help_d1
+            segmap = segmap[mn:mx, :]
+        else:
+             msgs.append(m_skip.format(s))
+             _simple_log_lines(msgs)
+             return
+             
+    # reset our variables just in case dim1 was changed
+    dim1, dim2 = np.shape(segmap)        
+    
+    if dim2 < 84:
+        msgs.append(m_pad.format(s, 'dim1'))
+        edited = True
+        segmap = _pad_dim(segmap, 1)
+    elif dim2 > 84:
+        msgs.append(m_crop.format(s, 'dim1'))
+        edited = True
+        crop_help_d2 = _fits_in_square(segmap, img_id)           
+        
+        if crop_help_d2:
+            _, _, mn, mx = crop_help_d2
+            segmap = segmap[:,mn:mx]
+        else:
+            msgs.append(m_skip.format(s))
+            _simple_log_lines(msgs)
+            return
+            
+            
+    if edited:
+        msgs.append(m_shp.format((dim1,dim2), np.shape(segmap)))
+    # SEGMAP ------------------------------------------------------------------
+    
+    # IMAGES ------------------------------------------------------------------
+    imgs = {}
+    try:
+        for b in bands:
+            i_dir = os.path.join(s_dir, f_format.format(s, b))
+            raw_img = fits.getdata(i_dir)                        
+            
+            dim1, dim2 = np.shape(raw_img)
+
+            if dim1 < 84:
+                raw_img = _pad_dim(raw_img, 0)
+            elif dim1 > 84:
+                mn, mx, _, _ = crop_help_d1
+                raw_img = raw_img[mn:mx, :]
+            
+            dim1, dim2 = np.shape(raw_img)                                
+            
+            if dim2 < 84:
+                raw_img = _pad_dim(raw_img, 1)
+            elif dim2 > 84:
+                _, _, mn, mx = crop_help_d2
+                raw_img = raw_img[:, mn:mx]
+
+            imgs[b] = raw_img
+    except Exception:
+        msgs.append(m_filt.format(s))
+        _simple_log_lines(msgs)
+        return
+    # IMAGES ------------------------------------------------------------------
+
+    # if we made any changes to the images write them to the log
+    if len(msgs) > 0:
+        _simple_log_lines(msgs)
+
+    # PREPROCESSING -----------------------------------------------------------
+    segmap = s_hlpr.transform_segmap(imgs.values(), segmap)    
+
+    # fix images in each band
+    for b in bands:        
+        imgs[b] = i_hlpr.transform_image(imgs[b], b, segmap, tt_imgs[b])   
+
+    # PREPROCESSING -----------------------------------------------------------
+
+    # combine into one image and save
+    cmb_img = np.array(imgs.values())
+
+    cmb_dir = os.path.join(to_dir, '{}.fits'.format(s))
+    fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
 # Helpers ---------------------------------------------------------------------
 
 
@@ -237,201 +353,20 @@ if len(os.listdir(tmp_dir)) == 0:
 sources =  _distinct_sources(tmp_dir)
 
 # Apply preprocessing to the images and save them to imgs 
-f_format = 'GDS_{}_{}.fits'
 bands = ['h','j','v','z']
-
 tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}
 
 imgs_dir = os.path.join(data_dir, 'imgs')    
 if 'imgs' not in os.listdir(data_dir):
     os.mkdir(imgs_dir)    
 
-
-
-if False:
-    img_count = 1
-    img_total = len(sources)
-    for s in sources.iterkeys():
-        print 'Working on source {} of {}: {}'.format(img_count, img_total, s)
-        img_count += 1
-        
-        s_dir = sources[s]
-        img_id = int(s[(s.index('_')+1):])
-    
-        # fix segmap
-        seg_dir = os.path.join(s_dir, f_format.format(s, 'segmap'))
-        segmap = fits.getdata(seg_dir)
-    
-        valid_img = True
-        pad = False
-        crop = False
-        crop_help = None 
-        
-        # if our image is not 84x84
-        dim1, dim2 = np.shape(segmap)
-        if dim1 != 84 or dim2 != 84:
-            # we need pad the edges to pad the with the correct noise will 
-            # add '1' pixels to emulate a non central source
-            if dim1 < 84 or dim2 < 84:
-                _simple_log('{} needs to be padded: {}'.format(s, np.shape(segmap)))            
-                            
-                pad = True
-    
-                segmap = _pad_image(segmap)
-                
-                _simple_log('{} padding complete: {}'.format(s, np.shape(segmap)))
-            else:
-                _simple_log('{} needs to be cropped: {}'.format(s, np.shape(segmap)))            
-                
-                
-                crop_help = _fits_in_square(segmap,img_id)
-                if crop_help:
-                    crop = True
-                    
-                    d1_mn, d1_mx, d2_mn, d2_mx = crop_help                
-                    segmap = segmap[d1_mn:d1_mx, d2_mn:d2_mx]
-                    _simple_log('{} cropping complete: {}'.format(s, np.shape(segmap)))
-                else:        
-                    valid_img = False
-        
-        if not valid_img:
-            err = '{} skipped: dimensions are too large and the segmap will not fit '
-            _simple_log(err.format(s))
-            continue
-    
-        imgs = {}
-        try:
-            for b in bands:
-                i_dir = os.path.join(s_dir, f_format.format(s, b))
-                raw_img = fits.getdata(i_dir)                        
-                
-                if crop:
-                    d1_mn, d1_mx, d2_mn, d2_mx = crop_help
-                    # crop image 
-                    raw_img = raw_img[d1_mn:d1_mx, d2_mn:d2_mx]                
-                elif pad:
-                    
-                    raw_img = _pad_image(raw_img)
-                    
-    
-                imgs[b] = raw_img
-        except Exception:
-            err = '{} not included because all filters could not be loaded'
-            _simple_log(err.format(s))
-            continue
-    
-        segmap = s_hlpr.transform_segmap(imgs.values(), segmap)    
-    
-        # fix images in each band
-        for b in bands:        
-            imgs[b] = i_hlpr.transform_image(imgs[b], b, segmap, tt_imgs[b])   
-    
-        # combine into one image and save
-        cmb_img = np.array(imgs.values())
-    
-        cmb_dir = os.path.join(imgs_dir, '{}.fits'.format(s))
-        fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
-
-
-# need to add the tt_imgs to this so that the each process doesn't have to make to IO call
-print 'asyncing!'
-def process_source(kvp):
-    to_dir = '../data/imgs'        
-    
-    f_format = 'GDS_{}_{}.fits'
-    bands = ['h','j','v','z']
-    s, s_dir = kvp
-    print s
-    
-    tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}        
-    
-    
-    # fix segmap
-    seg_dir = os.path.join(s_dir, f_format.format(s, 'segmap'))
-    segmap = fits.getdata(seg_dir)
-    
-    valid_img = True
-    pad = False
-    crop = False
-    crop_help = None 
-
-    # if our image is not 84x84
-    dim1, dim2 = np.shape(segmap)
-    if dim1 != 84 or dim2 != 84:
-        # we need pad the edges to pad the with the correct noise will 
-        # add '1' pixels to emulate a non central source
-        if dim1 < 84 or dim2 < 84:
-            _simple_log('{} needs to be padded: {}'.format(s, np.shape(segmap)))            
-                        
-            pad = True
-
-            segmap = _pad_image(segmap)
-        else:
-            _simple_log('{} needs to be cropped: {}'.format(s, np.shape(segmap)))            
-            
-            
-            crop_help = _fits_in_square(segmap,img_id)
-            if crop_help:
-                crop = True
-                
-                d1_mn, d1_mx, d2_mn, d2_mx = crop_help                
-                segmap = segmap[d1_mn:d1_mx, d2_mn:d2_mx]
-            else:        
-                valid_img = False
-    
-    if not valid_img:
-        err = '{} skipped: dimensions are too large and the segmap will not fit '
-        _simple_log(err.format(s))
-        return
-
-    imgs = {}
-    try:
-        for b in bands:
-            i_dir = os.path.join(s_dir, f_format.format(s, b))
-            raw_img = fits.getdata(i_dir)                        
-            
-            if crop:
-                d1_mn, d1_mx, d2_mn, d2_mx = crop_help
-                # crop image 
-                raw_img = raw_img[d1_mn:d1_mx, d2_mn:d2_mx]                
-            elif pad:
-                
-                raw_img = _pad_image(raw_img)
-                
-
-            imgs[b] = raw_img
-    except Exception:
-        err = '{} not included because all filters could not be loaded'
-        _simple_log(err.format(s))
-        return
-
-    segmap = s_hlpr.transform_segmap(imgs.values(), segmap)    
-
-    # fix images in each band
-    for b in bands:        
-        imgs[b] = i_hlpr.transform_image(imgs[b], b, segmap, tt_imgs[b])   
-
-    # combine into one image and save
-    cmb_img = np.array(imgs.values())
-
-    cmb_dir = os.path.join(to_dir, '{}.fits'.format(s))
-    fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
-
-p = Pool()
-p.map(process_source, sources.items())
-
-
-
-
-
-
-
-
-
-
-
-
-
+if RUN_PARALLEL:
+    print 'Asyncing!'
+    Pool().map(process_image, zip(sources.items(), repeat(tt_imgs)))
+else:
+    print 'Sequentialing!'
+    for args in zip(sources.items(), repeat(tt_imgs)):
+        process_image(args)
 
 # clean up
 rmtree(tmp_dir, ignore_errors=True)
