@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 import numpy as np
-from random import shuffle
+from random import shuffle, randint
 from astropy.io import fits
 
 from PIL import Image
@@ -20,6 +20,7 @@ class DataHelper(object):
                  augment=True,
                  data_dir='../data'):
         self._batch_size = batch_size
+        self._augment = augment
         self._shuffle = shuffle
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
@@ -59,9 +60,26 @@ class DataHelper(object):
         if shuffle_train:
             shuffle(self._train_imgs)
         
-    def _augment_image(sef, img):
-        None
+    def _augment_image(self, img):    
+        # rewrite into a single affine transformation       
     
+        for i in img.shape[2]:
+            tmp_img = Image.fromarray(img[:,:,i])
+            #rotation
+            tmp_img = tmp_img.rotate(randint(0,360))
+            
+            # shift -4 to 4 for x and y
+            tmp_img = tmp_img.offset(randint(-4,4), randint(-4,4))
+            
+            # Scaling to go here, Brant wants to avoid scaling if we can for now
+            
+            flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
+            if randint(0, 1):
+                tmp_img = tmp_img.transpose(flip_type[randint(0, 1)])
+        
+            img[:,:,i] = tmp_img
+            
+        return img
     
     def get_next_batch(self):
         if self.training:        
@@ -72,8 +90,14 @@ class DataHelper(object):
             y = []
             
             for s in sources:
-                x_dir = os.path.join(self._imgs_dir,s)          
-                x.append(fits.getdata(x_dir).reshape(84,84,4))
+                x_dir = os.path.join(self._imgs_dir,s)  
+                
+                x_tmp =  fits.getdata(x_dir)
+                
+                if self._augment:
+                    x_tmp = self._augment(x_tmp)
+                                                
+                x.append(x_tmp)
                 
                 s_id = 'GDS_' + s[:-5]                
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
@@ -114,5 +138,3 @@ class DataHelper(object):
                 self._idx = end_idx
             
             return (x, y)
-            
-    # TODO reset training method
