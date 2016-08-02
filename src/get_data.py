@@ -325,7 +325,7 @@ def process_image(args):
     # PREPROCESSING -----------------------------------------------------------
 
     # combine into one image and save
-    cmb_img = np.array(imgs.values())
+    cmb_img = np.array(imgs.values()).reshape(84,84,4)
 
     cmb_dir = os.path.join(to_dir, '{}.fits'.format(s))
     fits.PrimaryHDU(cmb_img).writeto(cmb_dir)

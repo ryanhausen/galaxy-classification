@@ -5,9 +5,8 @@ import time
 
 import tensorflow as tf
 
-batch_size = 50
-test_size = 0.2
-test_size = 1
+batch_size = 5
+train_size = 0.8
 display_step = 100
 n_classes = 5
 learning_rate = .0001
@@ -24,6 +23,10 @@ x = tf.placeholder(tf.float32, [batch_size, 84,84,4])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 net = CandleNet.get_network(x)
+
+if True:
+    raise Exception('Test')
+
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 
@@ -46,7 +49,7 @@ with tf.Session() as sess:
             epoch_start = time.time()
             print 'Training Epoch {}...'.format(epoch)
             # get data, test_idx = 19000 is ~83% train test split
-            dh = DataHelper(batch_size, test_size)
+            dh = DataHelper(batch_size=batch_size, train_size=train_size )
 
             step = 1
             while dh.training:
@@ -78,9 +81,11 @@ with tf.Session() as sess:
             # test
             test_step = 1
             test_rmse = 0.0
+            test_size = 0
             while dh.testing:
-                start = (test_step - 1) * batch_size
-                end = test_step * batch_size
+#                start = (test_step - 1) * batch_size
+#                end = test_step * batch_size
+                test_size += batch_size
                 batch_xs, batch_ys= dh.get_next_batch()
                  
 
@@ -93,7 +98,7 @@ with tf.Session() as sess:
             test_rmse = sqrt(test_rmse / float(test_size))
             print 'Test RMSE:{}'.format(test_rmse)
 
-            with open('./report/test_progress.csv', mode='a') as f:
+            with open(test_progress , mode='a') as f:
                 f.write('{},{}\n'.format(epoch, test_rmse))
 
             print 'Time for epoch {}'.format(time.time() - epoch_start)

@@ -32,19 +32,29 @@ class CandleNet:
 
         def conv_net(_X, _weights, _biases):
             # First convolution layer
+            #print 'x: {}'.format(_X.get_shape())
+        
             conv1 = conv2d(_X, _weights['wc1'], _biases['bc1'])
             conv1 = max_pool(conv1, k=2)
+
+            #print 'conv1: {}'.format(conv1.get_shape())
 
             # Second Covolution layer
             conv2 = conv2d(conv1, _weights['wc2'], _biases['bc2'])
             conv2 = max_pool(conv2, k=2)
 
+            #print 'conv2: {}'.format(conv2.get_shape())
+
             # Thrid Convolution Layer
             conv3 = conv2d(conv2, _weights['wc3'], _biases['bc3'])
+
+            #print 'conv3: {}'.format(conv3.get_shape())
 
             # Fourth Convolution Layer
             conv4 = conv2d(conv3, _weights['wc4'], _biases['bc4'])
             conv4 = max_pool(conv4, k=2)
+
+            #print 'conv4: {}'.format(conv4.get_shape())
 
             # In the paper the FC layers suggest that you use maxout, but
             # there isn't a native maxout in TensorFlow, so I used ReLU for now.
