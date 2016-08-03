@@ -8,6 +8,8 @@ from astropy.io import fits
 
 from PIL import Image, ImageChops
 
+from copy import deepcopy
+
 class DataHelper(object):
     """
     Provides shuffling and batches for the neural net
@@ -63,7 +65,7 @@ class DataHelper(object):
     def _augment_image(self, img):    
         # rewrite into a single affine transformation       
     
-        img = np.reshape(img, (84,84,4))        
+        img = np.reshape(img, (4,84,84))        
         flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
         
         rotation = randint(0,360)
@@ -72,10 +74,16 @@ class DataHelper(object):
         flip = randint(0,1)        
         f_type = flip_type[randint(0,1)]
         
-        tmp = []        
-        for i in range(img.shape[2]):
-                        
-            tmp_img = Image.fromarray(img[:,:,i])
+        print '{} {} {} {}'.format(rotation, x_shift, y_shift, flip)        
+        
+        
+        bands = ['h','j','v','z']        
+        
+        tmp = []
+
+        for i in range(img.shape[0]):
+            tmp_img = Image.fromarray(img[i,:,:])
+            
             #rotation
             tmp_img = tmp_img.rotate(rotation)       
             
@@ -87,7 +95,20 @@ class DataHelper(object):
             if flip:
                 tmp_img = tmp_img.transpose(f_type)
             
-            tmp.append(np.asarray(tmp_img))
+            
+            tmp_img = np.asarray(tmp_img)            
+            noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))       
+            noise_mask = tmp_img == 0            
+            
+            cpy_img = deepcopy(np.asarray(tmp_img)) 
+            for j in range(cpy_img.shape[0]):
+                for k in range(cpy_img.shape[1]):
+                    if noise_mask[j,k]:
+                        cpy_img[j,k] = noise[j,k]
+            
+            #fits.PrimaryHDU(np.array(cpy_img)).writeto('../data/imgs/{}.fits'.format((i+1)*'a'))            
+            
+            tmp.append(cpy_img)
         
         return np.array(tmp).reshape((84,84,4))
         

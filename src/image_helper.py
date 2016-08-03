@@ -1,4 +1,5 @@
 # python libs
+import os
 from copy import deepcopy
 
 # third party libs
@@ -6,6 +7,7 @@ import numpy as np
 from numpy.random import randint
 from scipy.ndimage.filters import convolve
 from scipy.misc import imresize
+from astropy.io import fits
 
 
 def transform_image(img, band, segmap, tinytim):
@@ -41,6 +43,14 @@ def transform_image(img, band, segmap, tinytim):
     
         # convolve the noise only image with the modified tiny tim kernel
         tt_img = convolve(cpy_noise, tinytim)
+    
+        # save this for future use, only once     
+        if 'noise' not in os.listdir('../data'):
+            os.mkdir('../data/noise')
+            
+        if '{}.fits'.format(band) not in os.listdir('../data/noise'):
+            fits.PrimaryHDU(tt_img).writeto('../data/noise/{}.fits'.format(band))
+    
     
         noise_rng = (np.min(noise), np.max(noise))
         tt_range =  (np.min(tt_img), np.max(tt_img))   

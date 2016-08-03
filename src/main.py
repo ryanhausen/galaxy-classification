@@ -1,22 +1,32 @@
+import os
 from datahelper import DataHelper
 from network import CandleNet
 from math import sqrt
 import time
+import colorama 
 
 import tensorflow as tf
+
+colorama.init(autoreset=True)
 
 batch_size = 15
 train_size = 0.8
 display_step = 100
 n_classes = 5
-learning_rate = .0001
+# used to be .0001
+learning_rate = .01
 momentum = 0.9
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
 test_progress = '../report/test_progress.csv'
 
+# make sure we have a place to save the progress 
+for new_dir in ['models', 'report']:
+    if new_dir not in os.listdir('../'):
+        os.mkdir('../' + new_dir)
+
 train = True
-checkpoint_dir = '../models/'
+
 
 #input
 x = tf.placeholder(tf.float32, [batch_size,84,84,4])
@@ -45,7 +55,9 @@ with tf.Session() as sess:
             epoch_start = time.time()
             print 'Training Epoch {}...'.format(epoch)
             # get data, test_idx = 19000 is ~83% train test split
-            dh = DataHelper(batch_size=batch_size, train_size=train_size )
+            dh = DataHelper(batch_size=batch_size,
+                            train_size=train_size, 
+                            shuffle_train=False)
 
             step = 1
             while dh.training:
@@ -92,7 +104,7 @@ with tf.Session() as sess:
                 test_step += 1
 
             test_rmse = sqrt(test_rmse / float(test_size))
-            print 'Test RMSE:{}'.format(test_rmse)
+            print colorama.Fore.YELLOW + 'Test RMSE:{}'.format(test_rmse)
 
             with open(test_progress , mode='a') as f:
                 f.write('{},{}\n'.format(epoch, test_rmse))
@@ -101,7 +113,7 @@ with tf.Session() as sess:
 
             epoch += 1
     else:
-        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        ckpt = tf.train.get_checkpoint_state(model_dir)
 
         dh = DataHelper(batch_size, test_size)
 
