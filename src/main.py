@@ -5,7 +5,7 @@ import time
 
 import tensorflow as tf
 
-batch_size = 5
+batch_size = 15
 train_size = 0.8
 display_step = 100
 n_classes = 5
@@ -19,14 +19,10 @@ train = True
 checkpoint_dir = '../models/'
 
 #input
-x = tf.placeholder(tf.float32, [batch_size, 84,84,4])
+x = tf.placeholder(tf.float32, [batch_size,84,84,4])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 net = CandleNet.get_network(x)
-
-if True:
-    raise Exception('Test')
-
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 

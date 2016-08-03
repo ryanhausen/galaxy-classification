@@ -83,7 +83,7 @@ class CandleNet:
         # Model weights and biases
         weights = {
             # 6x6 conv, 3-channel input, 32-channel outputs
-            'wc1': tf.Variable(tf.truncated_normal([6, 6, channels, 32], stddev=0.01)),
+            'wc1': tf.Variable(tf.truncated_normal([7, 7, channels, 32], stddev=0.01)),
             # 5x5 conv, 32-channel inputs, 64-channel outputs
             'wc2': tf.Variable(tf.truncated_normal([5, 5, 32, 64], stddev=0.01)),
             # 3x3 conv, 64-channel inputs, 128-channel outputs
@@ -91,6 +91,7 @@ class CandleNet:
             # 3x3 conv, 128-channel inputs, 128-channel outputs
             'wc4': tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.1)),
             # fully connected, 512 inputs, 2048 outputs
+            # was 4608 for 84x84
             'wf1': tf.Variable(tf.truncated_normal([4608, 2048], stddev=0.001)),
             # fully coneected 2048 inputs, 2048 outputs
             'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)),

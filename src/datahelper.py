@@ -6,7 +6,7 @@ import numpy as np
 from random import shuffle, randint
 from astropy.io import fits
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 class DataHelper(object):
     """
@@ -63,22 +63,34 @@ class DataHelper(object):
     def _augment_image(self, img):    
         # rewrite into a single affine transformation       
     
-        for i in img.shape[2]:
+        img = np.reshape(img, (84,84,4))        
+        flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
+        
+        rotation = randint(0,360)
+        x_shift = randint(-4,4)
+        y_shift = randint(-4,4)
+        flip = randint(0,1)        
+        f_type = flip_type[randint(0,1)]
+        
+        tmp = []        
+        for i in range(img.shape[2]):
+                        
             tmp_img = Image.fromarray(img[:,:,i])
             #rotation
-            tmp_img = tmp_img.rotate(randint(0,360))
+            tmp_img = tmp_img.rotate(rotation)       
             
             # shift -4 to 4 for x and y
-            tmp_img = tmp_img.offset(randint(-4,4), randint(-4,4))
+            tmp_img = ImageChops.offset(tmp_img, x_shift, y_shift)
             
             # Scaling to go here, Brant wants to avoid scaling if we can for now
             
-            flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
-            if randint(0, 1):
-                tmp_img = tmp_img.transpose(flip_type[randint(0, 1)])
-        
-            img[:,:,i] = tmp_img
+            if flip:
+                tmp_img = tmp_img.transpose(f_type)
             
+            tmp.append(np.asarray(tmp_img))
+        
+        return np.array(tmp).reshape((84,84,4))
+        
         return img
     
     def get_next_batch(self):
@@ -95,10 +107,10 @@ class DataHelper(object):
                 x_tmp =  fits.getdata(x_dir)
                 
                 if self._augment:
-                    x_tmp = self._augment(x_tmp)
+                    x_tmp = self._augment_image(x_tmp)
                                                 
                 x.append(x_tmp)
-                
+
                 s_id = 'GDS_' + s[:-5]                
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
                 y.append(lbl.values.reshape(self._num_classes))
