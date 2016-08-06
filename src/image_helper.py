@@ -1,6 +1,7 @@
 # python libs
 import os
 from copy import deepcopy
+import fcntl
 
 # third party libs
 import numpy as np
@@ -10,7 +11,7 @@ from scipy.misc import imresize
 from astropy.io import fits
 
 
-def transform_image(img, band, segmap, tinytim):
+def transform_image(img, img_id, src_name, band, segmap, tinytim):
     # Helper 
     # http://stackoverflow.com/a/5295202
     def scale_to(x, rng, minmax):       
@@ -18,9 +19,6 @@ def transform_image(img, band, segmap, tinytim):
         mn, mx = minmax
     
         return (((b-a)*(x-mn))/(mx-mn)) + a
-    
-    # The img id should be in the center of the segmap
-    img_id = segmap[segmap.shape[0] / 2, segmap.shape[1] / 2]    
          
     # use this copy to house the noise we want to convolve with tiny tim
     noise = img[segmap == 0]
@@ -51,9 +49,15 @@ def transform_image(img, band, segmap, tinytim):
         if '{}.fits'.format(band) not in os.listdir('../data/noise'):
             fits.PrimaryHDU(tt_img).writeto('../data/noise/{}.fits'.format(band))
     
+            
     
         noise_rng = (np.min(noise), np.max(noise))
         tt_range =  (np.min(tt_img), np.max(tt_img))   
+
+        with open('../data/noise/noise_range.csv', 'a') as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.write('{},{},{},{}\n'.format(src_name,band,noise_rng[0],noise_rng[1]))
+            fcntl.flock(f, fcntl.LOCK_UN)
         
         # recale to match the noise of the original image
         tt_img = scale_to(tt_img, noise_rng, tt_range)

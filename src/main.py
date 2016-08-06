@@ -1,9 +1,11 @@
 import os
 from datahelper import DataHelper
-from network import CandleNet
+from network import CandleNet, ExperimentalNet
+#from resnet import res_net
 from math import sqrt
 import time
 import colorama 
+
 
 import tensorflow as tf
 
@@ -14,7 +16,7 @@ train_size = 0.8
 display_step = 100
 n_classes = 5
 # used to be .0001
-learning_rate = .01
+learning_rate = .0001
 momentum = 0.9
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
@@ -32,7 +34,8 @@ train = True
 x = tf.placeholder(tf.float32, [batch_size,84,84,4])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
-net = CandleNet.get_network(x)
+net = ExperimentalNet.get_network(x)
+#net = res_net(x)
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 

@@ -320,12 +320,12 @@ def process_image(args):
 
     # fix images in each band
     for b in bands:        
-        imgs[b] = i_hlpr.transform_image(imgs[b], b, segmap, tt_imgs[b])   
+        imgs[b] = i_hlpr.transform_image(imgs[b], img_id, s, b, segmap, tt_imgs[b])   
 
     # PREPROCESSING -----------------------------------------------------------
 
     # combine into one image and save
-    cmb_img = np.array(imgs.values()).reshape(84,84,4)
+    cmb_img = np.dstack(tuple(imgs.values()))
 
     cmb_dir = os.path.join(to_dir, '{}.fits'.format(s))
     fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
