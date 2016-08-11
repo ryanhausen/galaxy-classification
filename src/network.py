@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.contrib.layers.python.layers import batch_norm as batch_norm
 
 
 class CandleNet:
@@ -221,3 +222,222 @@ class ExperimentalNet:
         output = fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
         
         return output
+
+# TODO reimplement with scopes instead        
+class Resnet:
+    @staticmethod
+    def get_network(x, is_training=True):
+        n_classes = 5        
+        
+        shp =x.get_shape().as_list()
+        batch_size = shp[0]
+        channels = shp[3]        
+        
+        vars_conv1 = {
+            'w': tf.Variable(tf.truncated_normal([5, 5, channels, 64], stddev=0.01)),        
+        }
+        
+        # first transformation no residual blocks
+        l1 = Resnet._block_operations(x, 
+                                      vars_conv1['w'], 
+                                      s=2, 
+                                      pad='VALID', 
+                                      activation=tf.nn.relu)
+                                      
+        l1 = Resnet._max_pool(l1, 3)
+
+        # block 1
+        block1_weights = [
+            # first conv 1x1
+            tf.Variable(tf.truncated_normal([1, 1, 64, 64], stddev=0.01)),
+            # conv 3x3
+            tf.Variable(tf.truncated_normal([3, 3, 64, 64], stddev=0.01)),
+            # second conv 1x1
+            tf.Variable(tf.truncated_normal([1, 1, 64, 256], stddev=0.01)),
+            # transform x to match conv2
+            tf.Variable(tf.truncated_normal([1, 1, 64, 256], stddev=0.01))
+        ]
+  
+        block1 = Resnet._building_block(l1, block1_weights, increase_dim=True, first=True)
+            
+        
+        
+        last_block = block1
+        fc_transform = tf.reshape(last_block, [batch_size, -1])        
+        
+        
+        # fully connected        
+        transformed_dim = fc_transform.get_shape().as_list()[1]
+        fc_weights = {
+            'wf1': tf.Variable(tf.truncated_normal([transformed_dim, 2048], stddev=0.001)),
+            # fully coneected 2048 inputs, 2048 outputs
+            'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)),
+            # 2048 inputs, 5 outputs (class prediction)
+            'out': tf.Variable(tf.truncated_normal([2048, n_classes], stddev=0.01))
+        }
+            
+        fc_biases = {
+            'bf1': tf.Variable(tf.constant(0.01, shape=[2048])),
+            'bf2': tf.Variable(tf.constant(0.01, shape=[2048])),
+            'out': tf.Variable(tf.constant(0.1, shape=[n_classes]))
+        }        
+        
+        
+
+
+        fc1 = Resnet._fc(fc_transform, fc_weights['wf1'], fc_biases['bf1'], tf.nn.relu)
+        fc2 = Resnet._fc(fc1, fc_weights['wf2'], fc_biases['bf2'], tf.nn.relu)
+        
+        # output
+        output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
+                
+        return output
+        
+    @staticmethod
+    def _building_block(x, ws, activation=tf.nn.relu, increase_dim=False, first=False):
+        dim_stride = 1        
+
+        if increase_dim and not first:
+            dim_stride = 2
+        
+        # first 1x1 conv
+        f_x = Resnet._block_operations(x, ws[0], s=dim_stride, pad='VALID', activation=activation)
+        
+        # 3x3 conv
+        f_x = Resnet._block_operations(f_x, ws[1], s=1, pad='SAME', activation=activation)
+        
+        # second 1x1 conv
+        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=activation)
+                
+        if increase_dim:
+            x = Resnet._block_operations(x, ws[3], s=1, pad='VALID', activation=activation)
+            
+        x = x + f_x
+        
+        return activation(x)
+        
+    
+    
+    @staticmethod
+    def _block_operations(x, w, 
+                          b=None, 
+                          s=1, 
+                          pad='SAME', 
+                          batch_norm=True, 
+                          is_training=True,
+                          activation=None):
+        
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
+        
+        if batch_norm:
+            x = Resnet._batch_norm_layer(x, is_training=is_training)
+        else:
+            x = tf.nn.bias_add(x, b)
+        
+        if activation:
+            x = activation(x)
+    
+        return x
+
+    @staticmethod
+    def _batch_norm_layer(x,is_training=True):
+        bn = None        
+        
+        if is_training:
+            bn = batch_norm(x, decay=0.999, center=True, scale=True,
+                            updates_collections=None,
+                            is_training=True,
+                            reuse=None, # is this right?
+                            trainable=True)#,
+                            #scope=scope_bn)
+        else:
+            bn = batch_norm(x, decay=0.999, center=True, scale=True,
+                            updates_collections=None,
+                            is_training=False,
+                            reuse=True, # is this right?
+                            trainable=True)#,
+                            #scope=scope_bn)
+        return bn
+
+
+    #https://github.com/tensorflow/models/blob/master/inception/inception/slim/ops.py#L116
+    def _batch_norm(img, activation=None, decay=0.999, center=None, scale=None):
+        
+        img_shape = inpt.get_shape()
+        img_axis = list(range(len(inputs_shape) - 1))
+        params_shape = inputs_shape[-1:]
+        
+        # Allocate parameters for the beta and gamma of the normalization.
+        beta, gamma = None, None
+        if center:
+            beta = variables.variable('beta',
+                                    params_shape,
+                                    initializer=tf.zeros_initializer,
+                                    trainable=trainable,
+                                    restore=restore)
+        if scale:
+            gamma = variables.variable('gamma',
+                                     params_shape,
+                                     initializer=tf.ones_initializer,
+                                     trainable=trainable,
+                                     restore=restore)        
+            
+        if is_training:
+            mean, variance = tf.nn.moments(img, axis)
+        else:
+            None
+            
+    
+    @staticmethod
+    def _max_pool(img, k, pad='VALID'):
+        ks = [1, k, k, 1]
+        return tf.nn.max_pool(img, ksize=ks, strides=ks, padding=pad)
+            
+    @staticmethod
+    def _fc(x, w, b, act):
+        return act(tf.add(tf.matmul(x, w), b))
+        
+    @staticmethod
+    def _building_block_bottlenext(x, w, b):
+        
+        conv1 = Resnet._conv2d(x, w[0], b[0])
+        # batch_norm
+        #norm1 =         
+        
+        conv2 = Resnet._conv2d(conv1, w[1], b[1])
+        conv3 = Resnet._conv2d(conv2, w[2], b[2])        
+        
+        return tf.nn.relu(conv3 + x)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        

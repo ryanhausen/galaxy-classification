@@ -83,8 +83,7 @@ class DataHelper(object):
         try:
             shp_rng = img.shape[2]
         except Exception:
-            #raise Exception('{} invalid shape: {}'.format(img_id,np.shape(img)))
-            shp_rng = 1
+            raise Exception('{} invalid shape: {}'.format(img_id,np.shape(img)))
 
         for i in range(shp_rng):
             

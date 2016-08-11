@@ -1,6 +1,6 @@
 import os
 from datahelper import DataHelper
-from network import CandleNet, ExperimentalNet
+from network import CandleNet, ExperimentalNet, Resnet
 #from resnet import res_net
 from math import sqrt
 import time
@@ -11,7 +11,7 @@ import tensorflow as tf
 
 colorama.init(autoreset=True)
 
-batch_size = 15
+batch_size = 5
 train_size = 0.8
 display_step = 100
 n_classes = 5
@@ -34,8 +34,9 @@ train = True
 x = tf.placeholder(tf.float32, [batch_size,84,84,4])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
-net = ExperimentalNet.get_network(x)
+#net = ExperimentalNet.get_network(x)
 #net = res_net(x)
+net = Resnet.get_network(x)
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 
