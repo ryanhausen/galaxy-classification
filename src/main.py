@@ -40,7 +40,7 @@ net = Resnet.get_network(x)
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+optimizer = tf.train.MomentumOptimizer(learning_rate, momentum).minimize(cost)
 
 rmse = tf.sqrt(tf.reduce_mean(tf.squared_difference(net,y)))
 
