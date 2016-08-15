@@ -100,7 +100,6 @@ class DataHelper(object):
             if flip:
                 tmp_img = tmp_img.transpose(f_type)
             
-            
             tmp_img = np.asarray(tmp_img)            
             noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))       
             

@@ -16,7 +16,7 @@ train_size = 0.8
 display_step = 100
 n_classes = 5
 # used to be .0001
-learning_rate = .0001
+learning_rate = .01
 momentum = 0.9
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
@@ -48,6 +48,7 @@ init = tf.initialize_all_variables()
 
 saver = tf.train.Saver()
 
+#raise Exception('Network size test')
 # train, test, and save model
 with tf.Session() as sess:
     sess.run(init)
