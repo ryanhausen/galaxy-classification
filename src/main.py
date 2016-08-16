@@ -11,12 +11,12 @@ import tensorflow as tf
 
 colorama.init(autoreset=True)
 
-batch_size = 5
+batch_size = 93
 train_size = 0.8
 display_step = 100
 n_classes = 5
 # used to be .0001
-learning_rate = .01
+start_learning_rate = .1
 momentum = 0.9
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
@@ -34,13 +34,18 @@ train = True
 x = tf.placeholder(tf.float32, [batch_size,84,84,4])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
+global_step = tf.Variable(0, trainable=False)
+decay_steps = 10
+decay_base = 0.96
+learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
+
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
 net = Resnet.get_network(x)
 
 cost = tf.reduce_mean(tf.squared_difference(net, y))
 
-optimizer = tf.train.MomentumOptimizer(learning_rate, momentum).minimize(cost)
+optimizer = tf.train.MomentumOptimizer(learning_rate, momentum, use_nesterov=True).minimize(cost, global_step=global_step)
 
 rmse = tf.sqrt(tf.reduce_mean(tf.squared_difference(net,y)))
 
@@ -57,12 +62,13 @@ with tf.Session() as sess:
         # train
         epoch = 1
         while True:  # epoch <= epochs:
+	    print colorama.Fore.BLUE + 'Current Learning Rate {}'.format(learning_rate.eval())
             epoch_start = time.time()
             print 'Training Epoch {}...'.format(epoch)
             # get data, test_idx = 19000 is ~83% train test split
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
-                            shuffle_train=False)
+                            shuffle_train=True)
 
             step = 1
             while dh.training:
