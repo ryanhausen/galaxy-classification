@@ -20,10 +20,13 @@ class DataHelper(object):
                  train_size=0.8, 
                  shuffle_train=True,
                  augment=True,
-                 data_dir='../data'):
+                 data_dir='../data',
+                 bands = ['h','j','v','z']):
         self._batch_size = batch_size
         self._augment = augment
         self._shuffle = shuffle
+        self._bands = bands
+        self._drop_band = len(bands) < 4
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
         self._lbls = pd.read_csv(os.path.join(data_dir,'labels/labels.csv'))
@@ -63,7 +66,7 @@ class DataHelper(object):
         if shuffle_train:
             shuffle(self._train_imgs)
         
-    def _augment_image(self, img,img_id):    
+    def _augment_image(self, img, img_id):    
         # rewrite into a single affine transformation       
       
         flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
@@ -86,52 +89,55 @@ class DataHelper(object):
             raise Exception('{} invalid shape: {}'.format(img_id,np.shape(img)))
 
         for i in range(shp_rng):
+            if bands[i] in self._bands:
             
-            tmp_img = Image.fromarray(img[:,:,i])
-            
-            #rotation
-            tmp_img = tmp_img.rotate(rotation)       
-            
-            # shift -4 to 4 for x and y
-            tmp_img = ImageChops.offset(tmp_img, x_shift, y_shift)
-            
-            # Scaling to go here, Brant wants to avoid scaling if we can for now
-            
-            if flip:
-                tmp_img = tmp_img.transpose(f_type)
-            
-            tmp_img = np.asarray(tmp_img)            
-            noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))       
-            
-            id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
-            
-            try:
-                rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
-                noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
-            except Exception:
-                None
-                # log this
-                #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
-            
-            len_noise = None
-            if bands[i] not in ('h','j'):
-                noise = noise.flatten()
-                len_noise = len(noise)-1
-            
-            noise_mask = tmp_img == 0            
-            
-            cpy_img = deepcopy(np.asarray(tmp_img)) 
-            for j in range(cpy_img.shape[0]):
-                for k in range(cpy_img.shape[1]):
-                    if noise_mask[j,k]:
-                        if bands[i] in ('h','j'):                        
-                            cpy_img[j,k] = noise[j,k]
-                        else:
-                            cpy_img[j,k] = noise[randint(0,len_noise)]
-            
-            #fits.PrimaryHDU(np.array(cpy_img)).writeto('../data/imgs/{}.fits'.format((i+1)*'a'))            
-            
-            tmp.append(cpy_img)
+                tmp_img = Image.fromarray(img[:,:,i])
+                
+                #rotation
+                tmp_img = tmp_img.rotate(rotation)       
+                # shift -4 to 4 for x and y
+                tmp_img = ImageChops.offset(tmp_img, x_shift, y_shift)
+                
+                # Scaling to go here, Brant wants to avoid scaling if we can for now
+                
+                if flip:
+                    tmp_img = tmp_img.transpose(f_type)
+                
+                tmp_img = np.asarray(tmp_img)            
+                noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))       
+                
+                id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
+                
+                try:
+                    rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
+                    noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
+                except Exception:
+                    None
+                    # log this
+                    #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
+                
+                len_noise = None
+                if bands[i] not in ('h','j'):
+                    noise = noise.flatten()
+                    len_noise = len(noise)-1
+                
+                noise_mask = tmp_img == 0            
+                
+                cpy_img = deepcopy(np.asarray(tmp_img)) 
+                for j in range(cpy_img.shape[0]):
+                    for k in range(cpy_img.shape[1]):
+                        if noise_mask[j,k]:
+                            if bands[i] in ('h','j'):                        
+                                cpy_img[j,k] = noise[j,k]
+                            else:
+                                cpy_img[j,k] = noise[randint(0,len_noise)]
+                
+                #fits.PrimaryHDU(np.array(cpy_img)).writeto('../data/imgs/{}.fits'.format((i+1)*'a'))            
+                
+                tmp.append(cpy_img)
+        
+        if len(tmp) > len(self._bands):
+            print img_id
         
         return np.dstack(tmp)
         
@@ -175,14 +181,25 @@ class DataHelper(object):
         else:
             end_idx = self._idx + self._batch_size
             sources = self._test_imgs[self._idx:end_idx]
-                        
+            bands = ['h','j','v','z']            
+            
             x = []
             y = []
             
             for s in sources:
                 x_dir = os.path.join(self._imgs_dir,s)          
                 
-                x.append(fits.getdata(x_dir))
+                raw = fits.getdata(x_dir)
+                
+                if self._drop_band:
+                    tmp = []
+                    for i in range(4):
+                        if bands[i] in self._bands:
+                            tmp.append(raw[:,:,i])
+
+                    raw = np.dstack(tmp)                            
+                            
+                x.append(raw)                                
                 
                 s_id = 'GDS_' + s[:-5]                
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]

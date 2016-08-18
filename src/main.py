@@ -11,13 +11,19 @@ import tensorflow as tf
 
 colorama.init(autoreset=True)
 
+# PARAMS
 batch_size = 93
 train_size = 0.8
-display_step = 100
 n_classes = 5
+decay_steps = 10
+decay_base = 0.96
 # used to be .0001
 start_learning_rate = .1
 momentum = 0.9
+bands_to_use = ['h','j','v']
+
+
+display_step = 10
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
 test_progress = '../report/test_progress.csv'
@@ -31,23 +37,22 @@ train = True
 
 
 #input
-x = tf.placeholder(tf.float32, [batch_size,84,84,4])
+x = tf.placeholder(tf.float32, [batch_size,84,84,len(bands_to_use)])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 global_step = tf.Variable(0, trainable=False)
-decay_steps = 10
-decay_base = 0.96
 learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
 net = Resnet.get_network(x)
 
-cost = tf.reduce_mean(tf.squared_difference(net, y))
+#cost = tf.reduce_mean(tf.squared_difference(net, y))
+cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(net, y))
 
 optimizer = tf.train.MomentumOptimizer(learning_rate, momentum, use_nesterov=True).minimize(cost, global_step=global_step)
 
-rmse = tf.sqrt(tf.reduce_mean(tf.squared_difference(net,y)))
+rmse = tf.sqrt(tf.reduce_mean(tf.squared_difference(tf.nn.softmax(net),y)))
 
 init = tf.initialize_all_variables()
 
@@ -68,7 +73,8 @@ with tf.Session() as sess:
             # get data, test_idx = 19000 is ~83% train test split
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
-                            shuffle_train=True)
+                            shuffle_train=True,
+                            bands=bands_to_use)
 
             step = 1
             while dh.training:
@@ -81,8 +87,8 @@ with tf.Session() as sess:
                     loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys})
 
                     print "Iter " + str(step * batch_size) + \
-                          ", Minibatch Loss= " + "{:.6f}".format(loss) + \
-                          ", Training RMSE= " + "{:.5f}".format(acc)
+                          ", Minibatch Loss= " + "{}".format(loss) + \
+                          ", Training RMSE= " + "{}".format(acc)
 
                     with open(train_progress, mode='a') as f:
                         f.write('{},{},{},{}\n'.format(epoch,

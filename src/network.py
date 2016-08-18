@@ -223,8 +223,7 @@ class ExperimentalNet:
         
         return output
 
-# TODO reimplement with scopes instead
-# TODO divide learning rate when error plateaus        
+# TODO reimplement with scopes instead       
 class Resnet:
     @staticmethod
     def get_network(x, is_training=True):
@@ -414,7 +413,8 @@ class Resnet:
         fc2 = Resnet._fc(fc1, fc_weights['wf2'], fc_biases['bf2'], tf.nn.relu)
         
         # output
-        output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
+        # removed activation function for tf crossentropy loss
+        output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], None)
                 
         return output
         
@@ -434,10 +434,10 @@ class Resnet:
         f_x = Resnet._block_operations(f_x, ws[1], s=dim_stride, pad=pad, activation=activation)
         
         # second 1x1 conv
-        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=activation)
+        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=None)
                 
         if increase_dim:
-            x = Resnet._block_operations(x, ws[3], s=dim_stride, pad='VALID', activation=activation)
+            x = Resnet._block_operations(x, ws[3], s=dim_stride, pad='VALID', activation=None)
             
         x = x + f_x
         
@@ -522,7 +522,10 @@ class Resnet:
             
     @staticmethod
     def _fc(x, w, b, act):
-        return act(tf.add(tf.matmul(x, w), b))
+        if act:
+            return act(tf.add(tf.matmul(x, w), b))
+        else:
+            return tf.add(tf.matmul(x, w), b)
         
     @staticmethod
     def _building_block_bottlenext(x, w, b):
