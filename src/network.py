@@ -1,3 +1,4 @@
+import math
 import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import batch_norm as batch_norm
 
@@ -85,20 +86,20 @@ class CandleNet:
         # Model weights and biases
         weights = {
             # 6x6 conv, 3-channel input, 32-channel outputs
-            'wc1': tf.Variable(tf.truncated_normal([3, 3, channels, 32], stddev=0.01)),
+            'wc1': tf.Variable(tf.truncated_normal([3, 3, channels, 32], stddev=0.01)), #0.01
             # 5x5 conv, 32-channel inputs, 64-channel outputs
-            'wc2': tf.Variable(tf.truncated_normal([5, 5, 32, 64], stddev=0.01)),
+            'wc2': tf.Variable(tf.truncated_normal([5, 5, 32, 64], stddev=0.01)), #0.01
             # 3x3 conv, 64-channel inputs, 128-channel outputs
-            'wc3': tf.Variable(tf.truncated_normal([3, 3, 64, 128], stddev=0.01)),
+            'wc3': tf.Variable(tf.truncated_normal([3, 3, 64, 128], stddev=0.01)), #0.01
             # 3x3 conv, 128-channel inputs, 128-channel outputs
-            'wc4': tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.1)),
+            'wc4': tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.1)), #0.1
             # fully connected, 512 inputs, 2048 outputs
             # was 4608 for 84x84
-            'wf1': tf.Variable(tf.truncated_normal([6272, 2048], stddev=0.001)),
+            'wf1': tf.Variable(tf.truncated_normal([6272, 2048], stddev=0.001)), #0.001
             # fully coneected 2048 inputs, 2048 outputs
-            'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)),
+            'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)), #0.001
             # 2048 inputs, 5 outputs (class prediction)
-            'out': tf.Variable(tf.truncated_normal([2048, n_classes], stddev=0.01))
+            'out': tf.Variable(tf.truncated_normal([2048, n_classes], stddev=0.01)) #0.01
         }
 
         biases = {
@@ -226,178 +227,72 @@ class ExperimentalNet:
 # TODO reimplement with scopes instead       
 class Resnet:
     @staticmethod
-    def get_network(x, is_training=True):
+    def get_network(x, num_blocks, is_training=True):
         n_classes = 5        
         
         shp =x.get_shape().as_list()
         batch_size = shp[0]
         channels = shp[3]        
         
-        vars_conv1 = {
-            'w': tf.Variable(tf.truncated_normal([3, 3, channels, 16], stddev=0.01)),        
-        }
+
+
+        in_dim = 16
         
-        # first transformation no residual blocks
-        l1 = Resnet._block_operations(x, 
-                                      vars_conv1['w'], 
-                                      s=2, 
-                                      pad='VALID', 
-                                      activation=tf.nn.relu)
-                                      
-        
-                                      
-        #l1 = Resnet._max_pool(l1, 2)
+        with tf.variable_scope('conv1'):
+            weights = Resnet._make_weights([3,3,channels,in_dim], 'weights')
+            x = Resnet._block_operations(x,
+                                           weights,
+                                           s=2,
+                                           pad='VALID',
+                                           activation=tf.nn.relu)
 
-
-
-
-
-        # block 1
-        block1_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 16, 32], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 32, 32], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 32, 64], stddev=0.01)),
-            # transform x to match conv2
-            tf.Variable(tf.truncated_normal([1, 1, 16, 64], stddev=0.01))
-        ]
-  
-        block1 = Resnet._building_block(l1, block1_weights, increase_dim=True, first=True)
+        #block operations        
+        for i in range(1, num_blocks+1):
             
-        
-        # block 2
-        block2_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 32], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 32, 32], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 32, 64], stddev=0.01)),
-        ]
-  
-        block2 = Resnet._building_block(block1, block2_weights)        
-        
-        
-        # block 3
-        block3_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 32], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 32, 32], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 32, 64], stddev=0.01)),
-        ]
-  
-        block3 = Resnet._building_block(block2, block3_weights)     
-        
-        
-         # block 4
-        block4_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 32], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 32, 64], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 128], stddev=0.01)),
-            # incerease dims to match
-            tf.Variable(tf.truncated_normal([3, 3, 64, 128], stddev=0.01))
-        ]
-  
-        block4 = Resnet._building_block(block3, block4_weights, increase_dim=True)     
-        
-        
-        # block 5
-        block5_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 64], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 64, 64], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 128], stddev=0.01)),
-        ]
-  
-        block5 = Resnet._building_block(block4, block5_weights)     
+            with tf.variable_scope('block{}'.format(i)):
+                weights = []            
+                first = i == 1
+                increase_dim = i % 3 == 0 or first
                 
-        
-        # block 6
-        block6_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 64], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 64, 64], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 64, 128], stddev=0.01)),
-        ]
-  
-        block6 = Resnet._building_block(block5, block6_weights)   
-        
-        
-         # block 7
-        block7_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 64], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 64, 128], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 256], stddev=0.01)),
-            # incerease dims to match
-            tf.Variable(tf.truncated_normal([3, 3, 128, 256], stddev=0.01))
-        ]
-  
-        block7 = Resnet._building_block(block6, block7_weights, increase_dim=True)   
-        
-        
-         # block 8
-        block8_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 256, 128], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 256], stddev=0.01)),
-        ]
-  
-        block8 = Resnet._building_block(block7, block8_weights)
-        
-        
-        # block 9
-        block9_weights = [
-            # first conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 256, 128], stddev=0.01)),
-            # conv 3x3
-            tf.Variable(tf.truncated_normal([3, 3, 128, 128], stddev=0.01)),
-            # second conv 1x1
-            tf.Variable(tf.truncated_normal([1, 1, 128, 256], stddev=0.01)),
-        ]
-  
-        block9 = Resnet._building_block(block8, block9_weights)
-        
-        
-        
-
-        
-#        for l in  [x, l1, block1, block2, block3, block4, block5, block6, block7, block8, block9]:
-#            print l.get_shape()
-        
-        
-        
-        
-        
-        
-        last_block = block9
-        fc_transform = tf.reshape(last_block, [batch_size, -1])        
+                if first:
+                    weights = [
+                        Resnet._make_weights([1,1,in_dim,in_dim*2], 'w1'),
+                        Resnet._make_weights([3,3,in_dim*2,in_dim*2], 'w2'),
+                        Resnet._make_weights([1,1,in_dim*2,in_dim*4], 'w3'),
+                        Resnet._make_weights([1,1,in_dim,in_dim*4], 'w4')
+                    ]
+                else:
+                    weights.append(Resnet._make_weights([1,1,in_dim,in_dim/2], 'w1'))
+                
+                    if increase_dim:
+                        weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim], 'w2'))
+                        weights.append(Resnet._make_weights([1,1,in_dim,in_dim*2], 'w3'))
+                        weights.append(Resnet._make_weights([3,3,in_dim,in_dim*2], 'w4'))
+                    else:
+                        weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim/2], 'w2'))
+                        weights.append(Resnet._make_weights([1,1,in_dim/2,in_dim], 'w3'))
+                        
+                x = Resnet._building_block(x, 
+                                           weights, 
+                                           increase_dim=increase_dim, 
+                                           first=first)
+                                           
+                if increase_dim:
+                    in_dim *= 2
+                if first:
+                    in_dim *= 2
+                
+        fc_transform = tf.reshape(x, [batch_size, -1])        
         
         
         # fully connected        
         transformed_dim = fc_transform.get_shape().as_list()[1]
         fc_weights = {
-            'wf1': tf.Variable(tf.truncated_normal([transformed_dim, 2048], stddev=0.001)),
+            'wf1': Resnet._make_weights([transformed_dim, 2048], 'wf1'),
             # fully coneected 2048 inputs, 2048 outputs
-            'wf2': tf.Variable(tf.truncated_normal([2048, 2048], stddev=0.001)),
+            'wf2': Resnet._make_weights([2048, 2048], 'wf2'),
             # 2048 inputs, 5 outputs (class prediction)
-            'out': tf.Variable(tf.truncated_normal([2048, n_classes], stddev=0.01))
+            'out': Resnet._make_weights([2048, n_classes], 'out')
         }
             
         fc_biases = {
@@ -485,6 +380,25 @@ class Resnet:
                             trainable=True)#,
                             #scope=scope_bn)
         return bn
+
+
+    @staticmethod
+    def _make_weights(shp, name):
+        
+        std = None        
+        
+        # FC layer
+        if len(shp) == 2:
+            std = math.sqrt(1.0/shp[0])
+        # Conv layer
+        elif len(shp) == 4:
+            k_sqr_d = float(shp[0] * shp[1] * shp[2])
+            std = math.sqrt(2.0 / k_sqr_d)
+            None
+        else:
+            raise Exception('Shape should be an array of length 2 or 4')
+
+        return tf.Variable(tf.truncated_normal(shp, stddev=std))
 
 
     #https://github.com/tensorflow/models/blob/master/inception/inception/slim/ops.py#L116

@@ -15,13 +15,13 @@ colorama.init(autoreset=True)
 batch_size = 93
 train_size = 0.8
 n_classes = 5
-decay_steps = 10
+decay_steps = 1000
 decay_base = 0.96
 # used to be .0001
 start_learning_rate = .1
 momentum = 0.9
-bands_to_use = ['h','j','v']
-
+bands_to_use = ['v','z']
+num_blocks = 9
 
 display_step = 10
 model_dir = '../models/'
@@ -45,7 +45,7 @@ learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, dec
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
-net = Resnet.get_network(x)
+net = Resnet.get_network(x, num_blocks)
 
 #cost = tf.reduce_mean(tf.squared_difference(net, y))
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(net, y))
@@ -126,7 +126,7 @@ with tf.Session() as sess:
             with open(test_progress , mode='a') as f:
                 f.write('{},{}\n'.format(epoch, test_rmse))
 
-            print 'Time for epoch {}'.format(time.time() - epoch_start)
+            print 'Time for epoch {} seconds'.format(time.time() - epoch_start)
 
             epoch += 1
     else:
