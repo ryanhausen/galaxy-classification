@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import math
 import pandas as pd
 import numpy as np
 from random import shuffle, randint
@@ -20,12 +21,16 @@ class DataHelper(object):
                  train_size=0.8, 
                  shuffle_train=True,
                  augment=True,
+                 label_noise=None,
                  data_dir='../data',
-                 bands = ['h','j','v','z']):
+                 bands = ['h','j','v','z'],
+                 transform_func=None):
         self._batch_size = batch_size
         self._augment = augment
+        self._label_noise = label_noise
         self._shuffle = shuffle
         self._bands = bands
+        self._transform_func = transform_func
         self._drop_band = len(bands) < 4
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
@@ -67,22 +72,36 @@ class DataHelper(object):
             shuffle(self._train_imgs)
         
     def _augment_image(self, img, img_id):    
-        # rewrite into a single affine transformation       
-      
-        flip_type = [Image.FLIP_LEFT_RIGHT, Image.FLIP_TOP_BOTTOM]
-        
-        rotation = randint(0,360)
+
+        #TODO log_bias should be calculated in preprocessing and saved somewhere
+        log_bias = 1.0
+        if self._transform_func:
+            img = self._transform_func(img + log_bias)
+
+
+
+        rotation = randint(0,359)
         x_shift = randint(-4,4)
         y_shift = randint(-4,4)
-        flip = randint(0,1)        
-        f_type = flip_type[randint(0,1)]
+        flip = randint(0,1)
+        scale = math.exp(np.random.uniform(np.log(1.0 / 1.3), np.log(1.3)))
+        brightness = np.random.normal(loc=0.0,scale=0.01)        
         
+        to_origin = DataHelper._translate(42,42)
+        flipped = DataHelper._flip(randint(0,1)) if flip else np.identity(3)
+        scaled = DataHelper._scale(scale)
+        rotated = DataHelper._rotate(rotation)
+        shifted = DataHelper._translate(x_shift, y_shift)
+        recenter = DataHelper._translate(-42,-42)                 
+
+        trans = to_origin.dot(flipped).dot(scaled).dot(rotated).dot(shifted).dot(recenter)
+        trans = tuple(trans.flatten()[:6])
+
         bands = ['h','j','v','z']        
         
         tmp = []
 
         shp_rng = None
-        
         try:
             shp_rng = img.shape[2]
         except Exception:
@@ -91,17 +110,9 @@ class DataHelper(object):
         for i in range(shp_rng):
             if bands[i] in self._bands:
             
-                tmp_img = Image.fromarray(img[:,:,i])
+                tmp_img = Image.fromarray(np.log10(img[:,:,i] + log_bias))
                 
-                #rotation
-                tmp_img = tmp_img.rotate(rotation)       
-                # shift -4 to 4 for x and y
-                tmp_img = ImageChops.offset(tmp_img, x_shift, y_shift)
-                
-                # Scaling to go here, Brant wants to avoid scaling if we can for now
-                
-                if flip:
-                    tmp_img = tmp_img.transpose(f_type)
+                tmp_img = tmp_img.transform((84,84), Image.AFFINE, data=trans, resample=Image.BILINEAR)                
                 
                 tmp_img = np.asarray(tmp_img)            
                 noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))       
@@ -165,7 +176,14 @@ class DataHelper(object):
                 # for the labels we need to prefix GDS_
                 s_id = 'GDS_' + s[:-5]                  
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
-                y.append(lbl.values.reshape(self._num_classes))
+                lbl = lbl.values.reshape(self._num_classes)
+            
+                if self._label_noise:
+                    None
+            
+            
+                y.append(lbl)            
+            
             
             x = np.array(x)
             y = np.array(y)       
@@ -223,3 +241,47 @@ class DataHelper(object):
         mn, mx = minmax
     
         return (((b-a)*(x-mn))/(mx-mn)) + a
+        
+    @staticmethod        
+    def _translate(u,v):
+        return np.array([
+                [1.0, 0.0, float(u)],
+                [0.0, 1.0, float(v)],
+                [0.0, 0.0, 1.0]
+            ])
+    @staticmethod 
+    def _rotate(angle):
+        angle = -math.radians(angle)                
+        cos = math.cos(angle)
+        sin = math.sin(angle)
+        
+        return np.array([
+                [cos, sin, 0.0],
+                [-sin, cos, 0.0],
+                [0.0, 0.0, 1.0]
+            ])
+    @staticmethod
+    def _scale(v):
+        return np.array([
+                [v, 0.0, 0.0],
+                [0.0, v, 0.0],
+                [0.0, 0.0, 1.0]
+            ])
+    @staticmethod
+    def _flip(flip_type):
+        """
+        Horizantle flip = 0
+        Vertical flip = 1
+        """
+        if flip_type:
+            return np.array([
+                    [1.0, 0.0, 0.0],
+                    [0.0, -1.0, 0.0],
+                    [0.0, 0.0, 1.0]
+                ])
+        else:
+            return np.array([
+                    [-1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0]
+                ])

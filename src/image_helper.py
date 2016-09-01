@@ -77,5 +77,6 @@ def transform_image(img, img_id, src_name, band, segmap, tinytim):
                         img[i,j] = tt_img[i,j]
                     else:
                         img[i,j] = noise[randint(len_noise)]
+                        
 
     return img    

@@ -223,8 +223,7 @@ class ExperimentalNet:
         output = fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
         
         return output
-
-# TODO reimplement with scopes instead       
+     
 class Resnet:
     @staticmethod
     def get_network(x, num_blocks, is_training=True):

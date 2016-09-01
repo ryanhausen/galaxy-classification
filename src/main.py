@@ -3,6 +3,7 @@ from datahelper import DataHelper
 from network import CandleNet, ExperimentalNet, Resnet
 #from resnet import res_net
 from math import sqrt
+import numpy as np
 import time
 import colorama 
 
@@ -15,13 +16,14 @@ colorama.init(autoreset=True)
 batch_size = 93
 train_size = 0.8
 n_classes = 5
-decay_steps = 1000
+decay_steps = 250
 decay_base = 0.96
 # used to be .0001
 start_learning_rate = .1
 momentum = 0.9
-bands_to_use = ['v','z']
+bands_to_use = ['v','z', 'h', 'j']
 num_blocks = 9
+trans_func = np.log10
 
 display_step = 10
 model_dir = '../models/'
@@ -67,14 +69,15 @@ with tf.Session() as sess:
         # train
         epoch = 1
         while True:  # epoch <= epochs:
-	    print colorama.Fore.BLUE + 'Current Learning Rate {}'.format(learning_rate.eval())
+	    print colorama.Fore.BLUE + 'Current Learning Rate {}, Global Step:{}'.format(learning_rate.eval(), global_step.eval())
             epoch_start = time.time()
             print 'Training Epoch {}...'.format(epoch)
             # get data, test_idx = 19000 is ~83% train test split
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
                             shuffle_train=True,
-                            bands=bands_to_use)
+                            bands=bands_to_use,
+                            transform_func=trans_func)
 
             step = 1
             while dh.training:
