@@ -347,9 +347,6 @@ class Resnet:
                           batch_norm=True, 
                           is_training=True,
                           activation=None):
-        
-        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
-        
         if batch_norm:
             x = Resnet._batch_norm_layer(x, is_training=is_training)
         else:
@@ -357,6 +354,8 @@ class Resnet:
         
         if activation:
             x = activation(x)
+
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
     
         return x
 
@@ -432,7 +431,7 @@ class Resnet:
     def _max_pool(img, k, pad='VALID'):
         ks = [1, k, k, 1]
         return tf.nn.max_pool(img, ksize=ks, strides=ks, padding=pad)
-            
+
     @staticmethod
     def _fc(x, w, b, act):
         if act:
@@ -452,29 +451,111 @@ class Resnet:
         
         return tf.nn.relu(conv3 + x)
         
+class DenseNet:
+    @staticmethod
+    def get_network(x, num_blocks, layers_per_block=5, growth_rate=12, is_training=True):
+        n_classes = 5        
+        
+        shp =x.get_shape().as_list()
+        batch_size = shp[0]
+        channels = shp[3]   
+        
+        in_dim = 16        
+        
+        with tf.variable_scope('conv1'):
+            weights = DenseNet._make_weights([3,3,channels,in_dim], 'weights')
+            x = DenseNet._block_operations(x,
+                                           weights,
+                                           s=2,
+                                           pad='VALID',
+                                           activation=tf.nn.relu)
+         
+        for i in range(num_blocks):
+            None
         
         
         
         
+    @staticmethod
+    def _dense_block(x, w, num_layers, is_training=True):
+        for i in range(num_layers):
+            x_out = DenseNet._block_operations(x, w[i], is_training=is_training)
+            x = tf.concat(3, [x, x_out])
+            
+        return x
+    
+    @staticmethod
+    def _transition_layer(x, w):
+        x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
+        x = DenseNet._avg_pool(x, 2)
+        
+    
+    
+    @staticmethod
+    def _block_operations(x, w, 
+                          b=None, 
+                          s=3, 
+                          pad='SAME', 
+                          batch_norm=True, 
+                          is_training=True,
+                          activation=None):
+        
+        if batch_norm:
+            x = DenseNet._batch_norm_layer(x, is_training=is_training)
+        else:
+            x = tf.nn.bias_add(x, b)
+
+        if activation:
+            x = activation(x)
+
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)        
+            
+        return x
+
+        
+    @staticmethod
+    def _batch_norm_layer(x,is_training=True):
+        bn = None        
+        
+        if is_training:
+            bn = batch_norm(x, decay=0.999, center=True, scale=True,
+                            updates_collections=None,
+                            is_training=True,
+                            reuse=None, # is this right?
+                            trainable=True)#,
+                            #scope=scope_bn)
+        else:
+            bn = batch_norm(x, decay=0.999, center=True, scale=True,
+                            updates_collections=None,
+                            is_training=False,
+                            reuse=True, # is this right?
+                            trainable=True)#,
+                            #scope=scope_bn)
+        return bn
         
         
+    @staticmethod
+    def _avg_pool(x, k):
+        ks = [1, k, k, 1]
+        return tf.nn.avg_pool(x, ksize=ks, strides=ks, padding='VALID')
         
+    @staticmethod
+    def _make_weights(shp, name):
         
+        std = None        
         
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+        # FC layer
+        if len(shp) == 2:
+            std = math.sqrt(1.0/shp[0])
+        # Conv layer
+        elif len(shp) == 4:
+            k_sqr_d = float(shp[0] * shp[1] * shp[2])
+            std = math.sqrt(2.0 / k_sqr_d)
+            None
+        else:
+            raise Exception('Shape should be an array of length 2 or 4')
+
+        return tf.Variable(tf.truncated_normal(shp, stddev=std))
         
         
         
