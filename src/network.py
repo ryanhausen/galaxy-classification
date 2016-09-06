@@ -435,16 +435,20 @@ class DenseNet:
                         
          
         for i in range(1, num_blocks+1):
+            # Dense Bloack
             scope = 'block_{}'.format(i)
             with tf.variable_scope(scope):
                 w, in_dim = DenseNet._make_block_weights(layers_per_block, scope)                
                 x = DenseNet._dense_block(x, w, layers_per_block, is_training=is_training)
                 
+            scope = 'transition' + scope
+            # Transition Block
             if i != num_blocks:
-                # Transition Block
-                None
+                with tf.variable_scope():                
+                    w = DenseNet._make_weights([1,1,in_dim,in_dim], scope)
+                    x = DenseNet._transition_layer(x, w)
         
-        # Classify layers
+        
                 
         
         
