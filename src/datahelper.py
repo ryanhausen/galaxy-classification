@@ -7,7 +7,9 @@ import numpy as np
 from random import shuffle, randint
 from astropy.io import fits
 
-from PIL import Image, ImageChops
+from PIL import Image
+
+from sklearn.preprocessing import MinMaxScaler
 
 from copy import deepcopy
 
@@ -24,13 +26,15 @@ class DataHelper(object):
                  label_noise=None,
                  data_dir='../data',
                  bands = ['h','j','v','z'],
-                 transform_func=None):
+                 transform_func=None,
+                 band_transform_func=None):
         self._batch_size = batch_size
         self._augment = augment
         self._label_noise = label_noise
         self._shuffle = shuffle
         self._bands = bands
         self._transform_func = transform_func
+        self._band_transform_func = band_transform_func
         self._drop_band = len(bands) < 4
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
@@ -73,11 +77,8 @@ class DataHelper(object):
         
     def _augment_image(self, img, img_id):    
 
-        #TODO log_bias should be calculated in preprocessing and saved somewhere
-        log_bias = 1.0
         if self._transform_func:
-            img = self._transform_func(img + log_bias)
-
+            img = self._transform_func(img)
 
 
         rotation = randint(0,359)
@@ -109,8 +110,12 @@ class DataHelper(object):
 
         for i in range(shp_rng):
             if bands[i] in self._bands:
+                tmp_img = img[:,:,i]
             
-                tmp_img = Image.fromarray(np.log10(img[:,:,i] + log_bias))
+                if self._band_transform_func:
+                    tmp_img = self._band_transform_func(tmp_img)
+            
+                tmp_img = Image.fromarray(tmp_img)
                 
                 tmp_img = tmp_img.transform((84,84), Image.AFFINE, data=trans, resample=Image.BILINEAR)                
                 

@@ -1,7 +1,6 @@
 import os
 from datahelper import DataHelper
 from network import CandleNet, ExperimentalNet, Resnet
-#from resnet import res_net
 from math import sqrt
 import numpy as np
 import time
@@ -16,26 +15,30 @@ colorama.init(autoreset=True)
 batch_size = 93
 train_size = 0.8
 n_classes = 5
-decay_steps = 250
+decay_steps = 150
 decay_base = 0.96
 # used to be .0001
-start_learning_rate = .1
+start_learning_rate = .9
 momentum = 0.9
-bands_to_use = ['v','z', 'h', 'j']
+bands_to_use = ['v','z']
 num_blocks = 9
-trans_func = np.log10
+trans_func = None#lambda x: np.log10(x + 1.0)
+band_trans_func = None#lambda x: (((1-.0001)*(x-np.min(x)))/(np.max(x)-np.min(x))) + .0001
 
 display_step = 10
 model_dir = '../models/'
 train_progress = '../report/train_progress.csv'
 test_progress = '../report/test_progress.csv'
+save_progress = False
+train = True
+
+
 
 # make sure we have a place to save the progress 
 for new_dir in ['models', 'report']:
     if new_dir not in os.listdir('../'):
         os.mkdir('../' + new_dir)
 
-train = True
 
 
 #input
@@ -43,7 +46,8 @@ x = tf.placeholder(tf.float32, [batch_size,84,84,len(bands_to_use)])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 global_step = tf.Variable(0, trainable=False)
-learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
+#learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
+learning_rate = tf.Variable(start_learning_rate)
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
@@ -69,17 +73,21 @@ with tf.Session() as sess:
         # train
         epoch = 1
         while True:  # epoch <= epochs:
-	    print colorama.Fore.BLUE + 'Current Learning Rate {}, Global Step:{}'.format(learning_rate.eval(), global_step.eval())
+            print colorama.Fore.BLUE + 'Current Learning Rate {}, Global Step:{}'.format(learning_rate.eval(), global_step.eval())
             epoch_start = time.time()
             print 'Training Epoch {}...'.format(epoch)
-            # get data, test_idx = 19000 is ~83% train test split
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
                             shuffle_train=True,
                             bands=bands_to_use,
-                            transform_func=trans_func)
-
+                            transform_func=trans_func,
+                            band_transform_func=band_trans_func)
+                            
+            if epoch % 20 == 0:
+                learning_rate = learning_rate.assign(learning_rate.eval() / 10.0)                            
+                            
             step = 1
+
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
 
@@ -100,9 +108,11 @@ with tf.Session() as sess:
                                                        loss))
 
                 step += 1
-
-            print 'Saving checkpoint'
-            saver.save(sess, model_dir, global_step=epoch)
+                
+            if save_progress:
+                print 'Saving checkpoint'
+                saver.save(sess, model_dir, global_step=epoch)
+            
             print 'Epoch {} finished'.format(epoch)
 
             print 'Testing...'
@@ -111,11 +121,8 @@ with tf.Session() as sess:
             test_rmse = 0.0
             test_size = 0
             while dh.testing:
-#                start = (test_step - 1) * batch_size
-#                end = test_step * batch_size
                 test_size += batch_size
                 batch_xs, batch_ys= dh.get_next_batch()
-                 
 
                 _rmse = sess.run(rmse, feed_dict={x: batch_xs, y: batch_ys})
                 _rmse = pow(_rmse, 2) * batch_size

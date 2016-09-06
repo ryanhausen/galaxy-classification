@@ -319,8 +319,8 @@ def process_image(args):
     segmap = s_hlpr.transform_segmap(imgs.values(), segmap)    
 
     # fix images in each band
-    for b in bands:        
-        imgs[b] = i_hlpr.transform_image(imgs[b], img_id, s, b, segmap, tt_imgs[b])   
+#    for b in bands:        
+#        imgs[b] = i_hlpr.transform_image(imgs[b], img_id, s, b, segmap, tt_imgs[b])   
 
     # PREPROCESSING -----------------------------------------------------------
 

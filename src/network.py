@@ -204,15 +204,12 @@ class ExperimentalNet:
             'out': tf.Variable(tf.constant(0.1, shape=[n_classes]))
         }
 
-        # Model Helpers --------------------------------------------------------
-
         c1 = conv_net(c1)
         c2 = conv_net(c2)
         c3 = conv_net(c3)
         c4 = conv_net(c4)
         
         # feed this into one fully connected layer
-        #cmb = tf.pack([c1,c2,c3,c4], axis=1)
         cmb = tf.concat(1, [c1,c2,c3,c4]) 
         
         # fully connected
@@ -232,18 +229,16 @@ class Resnet:
         shp =x.get_shape().as_list()
         batch_size = shp[0]
         channels = shp[3]        
-        
-
 
         in_dim = 16
         
         with tf.variable_scope('conv1'):
             weights = Resnet._make_weights([3,3,channels,in_dim], 'weights')
             x = Resnet._block_operations(x,
-                                           weights,
-                                           s=2,
-                                           pad='VALID',
-                                           activation=tf.nn.relu)
+                                         weights,
+                                         s=1,
+                                         pad='SAME',
+                                         activation=tf.nn.relu)
 
         #block operations        
         for i in range(1, num_blocks+1):
@@ -336,8 +331,6 @@ class Resnet:
         x = x + f_x
         
         return activation(x)
-        
-    
     
     @staticmethod
     def _block_operations(x, w, 
@@ -367,16 +360,14 @@ class Resnet:
             bn = batch_norm(x, decay=0.999, center=True, scale=True,
                             updates_collections=None,
                             is_training=True,
-                            reuse=None, # is this right?
-                            trainable=True)#,
-                            #scope=scope_bn)
+                            reuse=None,
+                            trainable=True)
         else:
             bn = batch_norm(x, decay=0.999, center=True, scale=True,
                             updates_collections=None,
                             is_training=False,
-                            reuse=True, # is this right?
-                            trainable=True)#,
-                            #scope=scope_bn)
+                            reuse=True,
+                            trainable=True)
         return bn
 
 
@@ -397,35 +388,6 @@ class Resnet:
             raise Exception('Shape should be an array of length 2 or 4')
 
         return tf.Variable(tf.truncated_normal(shp, stddev=std))
-
-
-    #https://github.com/tensorflow/models/blob/master/inception/inception/slim/ops.py#L116
-    def _batch_norm(img, activation=None, decay=0.999, center=None, scale=None):
-        
-        img_shape = inpt.get_shape()
-        img_axis = list(range(len(inputs_shape) - 1))
-        params_shape = inputs_shape[-1:]
-        
-        # Allocate parameters for the beta and gamma of the normalization.
-        beta, gamma = None, None
-        if center:
-            beta = variables.variable('beta',
-                                    params_shape,
-                                    initializer=tf.zeros_initializer,
-                                    trainable=trainable,
-                                    restore=restore)
-        if scale:
-            gamma = variables.variable('gamma',
-                                     params_shape,
-                                     initializer=tf.ones_initializer,
-                                     trainable=trainable,
-                                     restore=restore)        
-            
-        if is_training:
-            mean, variance = tf.nn.moments(img, axis)
-        else:
-            None
-            
     
     @staticmethod
     def _max_pool(img, k, pad='VALID'):
@@ -469,9 +431,21 @@ class DenseNet:
                                            s=2,
                                            pad='VALID',
                                            activation=tf.nn.relu)
+                                           
+                        
          
-        for i in range(num_blocks):
-            None
+        for i in range(1, num_blocks+1):
+            scope = 'block_{}'.format(i)
+            with tf.variable_scope(scope):
+                w, in_dim = DenseNet._make_block_weights(layers_per_block, scope)                
+                x = DenseNet._dense_block(x, w, layers_per_block, is_training=is_training)
+                
+            if i != num_blocks:
+                # Transition Block
+                None
+        
+        # Classify layers
+                
         
         
         
@@ -556,6 +530,17 @@ class DenseNet:
             raise Exception('Shape should be an array of length 2 or 4')
 
         return tf.Variable(tf.truncated_normal(shp, stddev=std))
+        
+    @staticmethod
+    def _make_block_weights(num_layers, in_dim, growth_rate, scope):
+        weights = []
+        
+        for i in range(num_layers):
+            weights.append(DenseNet._make_weights([3,3,in_dim,growth_rate], '{}weights{}'.format(scope,i)))
+            in_dim += growth_rate            
+            
+            
+        return weights, in_dim
         
         
         
