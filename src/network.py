@@ -448,9 +448,18 @@ class DenseNet:
                     w = DenseNet._make_weights([1,1,in_dim,in_dim], scope)
                     x = DenseNet._transition_layer(x, w)
         
-        
-                
-        
+        # the paper calls for global average pooling to do that we need to
+        # convolve so that we end up with a channel for each class        
+        with tf.variable_scope('out'):
+            w = DenseNet._make_weights([1,1,in_dim,n_classes], 'weights')            
+            x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
+            
+            shp = x.get_shape().as_list()
+            
+            x = DenseNet._avg_pool(x, shp[1])
+            
+        # this will get softmaxed in the cost function
+        return x
         
         
         
