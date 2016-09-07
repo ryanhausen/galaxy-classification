@@ -223,7 +223,7 @@ class ExperimentalNet:
      
 class Resnet:
     @staticmethod
-    def get_network(x, num_blocks, is_training=True):
+    def get_network(x, block_config, is_training=True):
         n_classes = 5        
         
         shp =x.get_shape().as_list()
@@ -236,46 +236,49 @@ class Resnet:
             weights = Resnet._make_weights([3,3,channels,in_dim], 'weights')
             x = Resnet._block_operations(x,
                                          weights,
-                                         s=1,
-                                         pad='SAME',
+                                         s=2,
+                                         pad='VALID',
                                          activation=tf.nn.relu)
 
-        #block operations        
-        for i in range(1, num_blocks+1):
-            
-            with tf.variable_scope('block{}'.format(i)):
-                weights = []            
-                first = i == 1
-                increase_dim = i % 3 == 0 or first
-                
-                if first:
-                    weights = [
-                        Resnet._make_weights([1,1,in_dim,in_dim*2], 'w1'),
-                        Resnet._make_weights([3,3,in_dim*2,in_dim*2], 'w2'),
-                        Resnet._make_weights([1,1,in_dim*2,in_dim*4], 'w3'),
-                        Resnet._make_weights([1,1,in_dim,in_dim*4], 'w4')
-                    ]
-                else:
-                    weights.append(Resnet._make_weights([1,1,in_dim,in_dim/2], 'w1'))
-                
-                    if increase_dim:
-                        weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim], 'w2'))
-                        weights.append(Resnet._make_weights([1,1,in_dim,in_dim*2], 'w3'))
-                        weights.append(Resnet._make_weights([3,3,in_dim,in_dim*2], 'w4'))
+        block_seg = 0
+        for block in block_config:
+            block_seg += 1
+            for i in range(1, block+1):
+                scope = 'Seg{}block{}'.format(block_seg, i)
+                with tf.variable_scope(scope):
+                    
+                    weights = []
+                    first = block_seg == 1 and i ==1
+                    increase_dim = i == block or first
+                    
+                    if first:
+                        weights = [
+                            Resnet._make_weights([1,1,in_dim,in_dim*2], 'w1'),
+                            Resnet._make_weights([3,3,in_dim*2,in_dim*2], 'w2'),
+                            Resnet._make_weights([1,1,in_dim*2,in_dim*4], 'w3'),
+                            Resnet._make_weights([1,1,in_dim,in_dim*4], 'w4')
+                            ]
                     else:
-                        weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim/2], 'w2'))
-                        weights.append(Resnet._make_weights([1,1,in_dim/2,in_dim], 'w3'))
-                        
-                x = Resnet._building_block(x, 
-                                           weights, 
-                                           increase_dim=increase_dim, 
-                                           first=first)
-                                           
-                if increase_dim:
-                    in_dim *= 2
-                if first:
-                    in_dim *= 2
-                
+                        weights.append(Resnet._make_weights([1,1,in_dim,in_dim/2], 'w1'))
+                    
+                        if increase_dim:
+                            weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim], 'w2'))
+                            weights.append(Resnet._make_weights([1,1,in_dim,in_dim*2], 'w3'))
+                            weights.append(Resnet._make_weights([3,3,in_dim,in_dim*2], 'w4'))
+                        else:
+                            weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim/2], 'w2'))
+                            weights.append(Resnet._make_weights([1,1,in_dim/2,in_dim], 'w3'))
+                            
+                    x = Resnet._building_block(x, 
+                                               weights, 
+                                               increase_dim=increase_dim, 
+                                               first=first)
+                                               
+                    if increase_dim:
+                        in_dim *= 2
+                    if first:
+                        in_dim *= 2
+
         fc_transform = tf.reshape(x, [batch_size, -1])        
         
         
@@ -308,7 +311,11 @@ class Resnet:
         return output
         
     @staticmethod
-    def _building_block(x, ws, activation=tf.nn.relu, increase_dim=False, first=False):
+    def _building_block(x, ws, 
+                        activation=tf.nn.relu, 
+                        increase_dim=False, 
+                        first=False,
+                        is_training=True):
         dim_stride = 1        
         pad = 'SAME'
 
@@ -317,16 +324,16 @@ class Resnet:
             pad = 'VALID'
         
         # first 1x1 conv
-        f_x = Resnet._block_operations(x, ws[0], s=1, pad='VALID', activation=activation)
+        f_x = Resnet._block_operations(x, ws[0], s=1, pad='VALID', activation=activation, is_training=is_training)
         
         # 3x3 conv
-        f_x = Resnet._block_operations(f_x, ws[1], s=dim_stride, pad=pad, activation=activation)
+        f_x = Resnet._block_operations(f_x, ws[1], s=dim_stride, pad=pad, activation=activation, is_training=is_training)
         
         # second 1x1 conv
-        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=None)
+        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=None, is_training=is_training)
                 
         if increase_dim:
-            x = Resnet._block_operations(x, ws[3], s=dim_stride, pad='VALID', activation=None)
+            x = Resnet._block_operations(x, ws[3], s=dim_stride, pad='VALID', activation=None, is_training=is_training)
             
         x = x + f_x
         
@@ -340,6 +347,9 @@ class Resnet:
                           batch_norm=True, 
                           is_training=True,
                           activation=None):
+                              
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
+
         if batch_norm:
             x = Resnet._batch_norm_layer(x, is_training=is_training)
         else:
@@ -348,7 +358,6 @@ class Resnet:
         if activation:
             x = activation(x)
 
-        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
     
         return x
 

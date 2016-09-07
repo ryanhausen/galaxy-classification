@@ -18,10 +18,10 @@ n_classes = 5
 decay_steps = 150
 decay_base = 0.96
 # used to be .0001
-start_learning_rate = .9
+start_learning_rate = .1
 momentum = 0.9
 bands_to_use = ['v','z']
-num_blocks = 9
+block_config = [3,9,27]
 trans_func = None#lambda x: np.log10(x + 1.0)
 band_trans_func = None#lambda x: (((1-.0001)*(x-np.min(x)))/(np.max(x)-np.min(x))) + .0001
 
@@ -46,12 +46,12 @@ x = tf.placeholder(tf.float32, [batch_size,84,84,len(bands_to_use)])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 global_step = tf.Variable(0, trainable=False)
-#learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
-learning_rate = tf.Variable(start_learning_rate)
+learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
+#learning_rate = tf.Variable(start_learning_rate)
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
-net = Resnet.get_network(x, num_blocks)
+net = Resnet.get_network(x, block_config)
 
 #cost = tf.reduce_mean(tf.squared_difference(net, y))
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(net, y))
@@ -79,15 +79,14 @@ with tf.Session() as sess:
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
                             shuffle_train=True,
-                            bands=bands_to_use,
-                            transform_func=trans_func,
-                            band_transform_func=band_trans_func)
+                            bands=bands_to_use)#,
+                            #transform_func=trans_func,
+                            #band_transform_func=band_trans_func)
                             
             if epoch % 20 == 0:
-                learning_rate = learning_rate.assign(learning_rate.eval() / 10.0)                            
+                sess.run(learning_rate.assign(learning_rate.eval() / 10.0))                            
                             
             step = 1
-
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
 
