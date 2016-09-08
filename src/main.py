@@ -46,8 +46,8 @@ x = tf.placeholder(tf.float32, [batch_size,84,84,len(bands_to_use)])
 y = tf.placeholder(tf.float32, [None, n_classes])
 
 global_step = tf.Variable(0, trainable=False)
-learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
-#learning_rate = tf.Variable(start_learning_rate)
+#learning_rate = tf.train.exponential_decay(start_learning_rate, global_step, decay_steps, decay_base)
+learning_rate = tf.Variable(start_learning_rate)
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)

@@ -223,7 +223,7 @@ class ExperimentalNet:
      
 class Resnet:
     @staticmethod
-    def get_network(x, block_config, is_training=True):
+    def get_network(x, block_config, is_training=True, use_2016_update=False):
         n_classes = 5        
         
         shp =x.get_shape().as_list()
@@ -268,17 +268,24 @@ class Resnet:
                         else:
                             weights.append(Resnet._make_weights([3,3,in_dim/2,in_dim/2], 'w2'))
                             weights.append(Resnet._make_weights([1,1,in_dim/2,in_dim], 'w3'))
-                            
-                    x = Resnet._building_block(x, 
-                                               weights, 
-                                               increase_dim=increase_dim, 
-                                               first=first)
+                    
+                    if use_2016_update:
+                        x = Resnet._building_block_2016(x,
+                                                        weights,
+                                                        increase_dim=increase_dim,
+                                                        first=first)
+                    else:
+                        x = Resnet._building_block(x, 
+                                                   weights, 
+                                                   increase_dim=increase_dim, 
+                                                   first=first)
                                                
                     if increase_dim:
                         in_dim *= 2
                     if first:
                         in_dim *= 2
 
+        # TODO this should be converted to global average pooling        
         fc_transform = tf.reshape(x, [batch_size, -1])        
         
         
@@ -297,9 +304,6 @@ class Resnet:
             'bf2': tf.Variable(tf.constant(0.01, shape=[2048])),
             'out': tf.Variable(tf.constant(0.1, shape=[n_classes]))
         }        
-        
-        
-
 
         fc1 = Resnet._fc(fc_transform, fc_weights['wf1'], fc_biases['bf1'], tf.nn.relu)
         fc2 = Resnet._fc(fc1, fc_weights['wf2'], fc_biases['bf2'], tf.nn.relu)
@@ -357,8 +361,54 @@ class Resnet:
         
         if activation:
             x = activation(x)
-
     
+        return x
+
+    @staticmethod
+    def _building_block_2016(x, ws, 
+                            activation=tf.nn.relu, 
+                            increase_dim=False, 
+                            first=False,
+                            is_training=True):
+        dim_stride = 1        
+        pad = 'SAME'
+
+        if increase_dim and not first:
+            dim_stride = 2
+            pad = 'VALID'
+        
+        # first 1x1 conv
+        f_x = Resnet._block_operations(x, ws[0], s=1, pad='VALID', activation=activation, is_training=is_training)
+        
+        # 3x3 conv
+        f_x = Resnet._block_operations(f_x, ws[1], s=dim_stride, pad=pad, activation=activation, is_training=is_training)
+        
+        # second 1x1 conv
+        f_x = Resnet._block_operations(f_x, ws[2], s=1, pad='VALID', activation=activation, is_training=is_training)
+                
+        if increase_dim:
+            x = Resnet._block_operations(x, ws[3], s=dim_stride, pad='VALID', activation=None, is_training=is_training)
+        
+        return x + f_x
+
+    @staticmethod
+    def _block_operations_2016(x, w, 
+                               b=None, 
+                               s=1, 
+                               pad='SAME', 
+                               batch_norm=True, 
+                               is_training=True,
+                               activation=None):
+        if batch_norm:
+            x = Resnet._batch_norm_layer(x, is_training=is_training)
+        else:
+            x = tf.nn.bias_add(x, b)
+        
+        if activation:
+            x = activation(x)
+        
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
+
         return x
 
     @staticmethod
@@ -409,18 +459,6 @@ class Resnet:
             return act(tf.add(tf.matmul(x, w), b))
         else:
             return tf.add(tf.matmul(x, w), b)
-        
-    @staticmethod
-    def _building_block_bottlenext(x, w, b):
-        
-        conv1 = Resnet._conv2d(x, w[0], b[0])
-        # batch_norm
-        #norm1 =         
-        
-        conv2 = Resnet._conv2d(conv1, w[1], b[1])
-        conv3 = Resnet._conv2d(conv2, w[2], b[2])        
-        
-        return tf.nn.relu(conv3 + x)
         
 class DenseNet:
     @staticmethod
