@@ -188,7 +188,7 @@ class DataHelper(object):
                                                  size=self._num_classes)
                                                  
                     # add noise and renormalize so we get a proper distribution
-                    lbl = DataHelper._softmax(lbl + lbl_noise)
+                    lbl = DataHelper._rescale_label(lbl + lbl_noise)
             
                 y.append(lbl)            
             
@@ -242,6 +242,10 @@ class DataHelper(object):
             
             
     # Helper 
+    @staticmethod
+    def _rescale_label(y):
+        return y / y.sum()            
+            
     # http://stackoverflow.com/a/5295202
     def _scale_to(self, x, rng, minmax):       
         a, b = rng

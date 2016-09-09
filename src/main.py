@@ -17,6 +17,7 @@ train_size = 0.8
 n_classes = 5
 decay_steps = 150
 decay_base = 0.96
+epoch_reduce = None
 # used to be .0001
 start_learning_rate = .1
 momentum = 0.9
@@ -24,6 +25,7 @@ bands_to_use = ['v','z']
 block_config = [3,9,27]
 trans_func = None#lambda x: np.log10(x + 1.0)
 band_trans_func = None#lambda x: (((1-.0001)*(x-np.min(x)))/(np.max(x)-np.min(x))) + .0001
+label_noise_stddev = 0.01
 
 display_step = 10
 model_dir = '../models/'
@@ -69,6 +71,7 @@ saver = tf.train.Saver()
 with tf.Session() as sess:
     sess.run(init)
 
+    min_rmse = 1.0
     if train:
         # train
         epoch = 1
@@ -79,11 +82,12 @@ with tf.Session() as sess:
             dh = DataHelper(batch_size=batch_size,
                             train_size=train_size, 
                             shuffle_train=True,
-                            bands=bands_to_use)#,
-                            #transform_func=trans_func,
-                            #band_transform_func=band_trans_func)
+                            label_noise=label_noise_stddev,
+                            bands=bands_to_use,
+                            transform_func=trans_func,
+                            band_transform_func=band_trans_func)
                             
-            if epoch % 20 == 0:
+            if epoch_reduce and epoch % epoch_reduce == 0:
                 sess.run(learning_rate.assign(learning_rate.eval() / 10.0))                            
                             
             step = 1
@@ -108,9 +112,7 @@ with tf.Session() as sess:
 
                 step += 1
                 
-            if save_progress:
-                print 'Saving checkpoint'
-                saver.save(sess, model_dir, global_step=epoch)
+
             
             print 'Epoch {} finished'.format(epoch)
 
@@ -131,6 +133,13 @@ with tf.Session() as sess:
 
             test_rmse = sqrt(test_rmse / float(test_size))
             print colorama.Fore.YELLOW + 'Test RMSE:{}'.format(test_rmse)
+
+
+            if save_progress and test_rmse < min_rmse:
+                print 'Saving checkpoint'
+                saver.save(sess, model_dir, global_step=epoch)
+                min_rmse = test_rmse
+
 
             with open(test_progress , mode='a') as f:
                 f.write('{},{}\n'.format(epoch, test_rmse))
