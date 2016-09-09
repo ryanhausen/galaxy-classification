@@ -9,8 +9,6 @@ from astropy.io import fits
 
 from PIL import Image
 
-from sklearn.preprocessing import MinMaxScaler
-
 from copy import deepcopy
 
 class DataHelper(object):
@@ -28,6 +26,10 @@ class DataHelper(object):
                  bands = ['h','j','v','z'],
                  transform_func=None,
                  band_transform_func=None):
+        """
+             label_noise should be the stddev of the gaussian used to generate 
+             the noise
+        """
         self._batch_size = batch_size
         self._augment = augment
         self._label_noise = label_noise
@@ -148,8 +150,6 @@ class DataHelper(object):
                             else:
                                 cpy_img[j,k] = noise[randint(0,len_noise)]
                 
-                #fits.PrimaryHDU(np.array(cpy_img)).writeto('../data/imgs/{}.fits'.format((i+1)*'a'))            
-                
                 tmp.append(cpy_img)
         
         if len(tmp) > len(self._bands):
@@ -184,11 +184,13 @@ class DataHelper(object):
                 lbl = lbl.values.reshape(self._num_classes)
             
                 if self._label_noise:
-                    None
-            
+                    lbl_noise = np.random.normal(scale=self._label_noise, 
+                                                 size=self._num_classes)
+                                                 
+                    # add noise and renormalize so we get a proper distribution
+                    lbl = DataHelper._softmax(lbl + lbl_noise)
             
                 y.append(lbl)            
-            
             
             x = np.array(x)
             y = np.array(y)       
@@ -246,7 +248,13 @@ class DataHelper(object):
         mn, mx = minmax
     
         return (((b-a)*(x-mn))/(mx-mn)) + a
-        
+
+    #http://stackoverflow.com/questions/34968722/softmax-function-python
+    @staticmethod
+    def _softmax(x):
+        exp_x = np.exp(x - np.max(x))
+        return exp_x / exp_x.sum()
+      
     @staticmethod        
     def _translate(u,v):
         return np.array([
