@@ -1,6 +1,5 @@
 # python libs
 import os
-from copy import deepcopy
 import fcntl
 
 # third party libs
@@ -27,12 +26,11 @@ def transform_image(img, img_id, src_name, band, segmap, tinytim):
     # if there isn't any noise in the image, the there isn't anything for us
     # to replace, wide2_9682 is an example of this
     if len_noise > 0:
-        cpy_noise = deepcopy(img)    
+        cpy_noise = np.zeros(img.shape)    
         
         for i in xrange(img.shape[0]):
             for j in xrange(img.shape[1]): 
-                if segmap[i,j] > 0:
-                    cpy_noise[i,j] = noise[randint(len_noise)]
+                cpy_noise[i,j] = noise[randint(len_noise)]
     
     
          # resize and rescale the tiny tim image
@@ -68,15 +66,7 @@ def transform_image(img, img_id, src_name, band, segmap, tinytim):
         for i in xrange(img.shape[0]):
             for j in xrange(img.shape[1]): 
                 if repl_mask[i,j]:
-                    # the h and j bands appear to have more spatially correlated
-                    # noise so we use the tiny tim convoluted noise here
-                    # the v and z bands however have noise that is less spatially
-                    # correlated so we'll just a random draw from the existing 
-                    # noise to replace those pixels
-                    if band in ('h','j'):                  
-                        img[i,j] = tt_img[i,j]
-                    else:
-                        img[i,j] = noise[randint(len_noise)]
+                    img[i,j] = tt_img[i,j]
                         
 
     return img    

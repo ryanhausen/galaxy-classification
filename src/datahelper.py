@@ -48,34 +48,37 @@ class DataHelper(object):
         self.training = True        
         self.testing = False        
 
-        size_change = False        
-        num_train_examples = int(len(self._imgs_list) * train_size)
-        
-        batch_train = num_train_examples % batch_size
-        if batch_train != 0:
-            size_change = True
+        # work in batches
+        if batch_size:        
+            num_train_examples = int(len(self._imgs_list) * train_size)
             
-            if batch_train > batch_size / 2:
-                num_train_examples += batch_train
-            else:
-                num_train_examples -= batch_train
-        
-        if size_change:
-            msg = 'Batch didnt divide evenly into training examples ' + \
-                  ' adjusted training size from {} to {}'
-            print msg.format(train_size, float(num_train_examples) /  float(len(self._imgs_list)))
-        
-        # we want to use the same test images every time so they are set 
-        # aside before the shuffle
-        self._train_imgs = self._imgs_list[:num_train_examples]        
-        self._test_imgs = self._imgs_list[num_train_examples:]
-        
-        if len(self._train_imgs) % batch_size != 0:
-            err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
-            raise Exception(err.format(batch_size, len(self._train_imgs)))
-        
-        if shuffle_train:
-            shuffle(self._train_imgs)
+            batch_train = num_train_examples % batch_size
+            if batch_train != 0:
+                
+                if batch_train > batch_size / 2:
+                    num_train_examples += batch_train
+                else:
+                    num_train_examples -= batch_train
+            
+                msg = 'Batch didnt divide evenly into training examples ' + \
+                      ' adjusted training size from {} to {}'
+                print msg.format(train_size, float(num_train_examples) /  float(len(self._imgs_list)))
+            
+            # we want to use the same test images every time so they are set 
+            # aside before the shuffle
+            self._train_imgs = self._imgs_list[:num_train_examples]        
+            self._test_imgs = self._imgs_list[num_train_examples:]
+            
+            if len(self._train_imgs) % batch_size != 0:
+                err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
+                raise Exception(err.format(batch_size, len(self._train_imgs)))
+            
+            if shuffle_train:
+                shuffle(self._train_imgs)
+                
+        # one example at a time
+        else:
+            self.testing = True
         
     def _augment_image(self, img, img_id):    
 
@@ -240,7 +243,55 @@ class DataHelper(object):
             
             return (x, y)
             
+    def get_class_distribution(self):
+        cls_count_train = np.zeros([5,])
+        cls_count_test = np.zeros([5,])
+        
+      
+        for i in range(len(self._train_imgs)):
+            src = self._train_imgs[i]
+            s_id = 'GDS_' + src[:-5]
+            lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
+            lbl = lbl.values.reshape(self._num_classes)
             
+            cls_count_train[np.argmax(lbl)] += 1
+            
+        for i in range(len(self._test_imgs)):
+            src = self._test_imgs[i]
+            s_id = 'GDS_' + src[:-5]
+            lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
+            lbl = lbl.values.reshape(self._num_classes)
+            
+            cls_count_test[np.argmax(lbl)] += 1
+            
+        return (cls_count_train, cls_count_test)
+
+    def get_next_example(self):
+        source = self._imgs_list[self._idx]
+        self._idx += 1
+        
+        if self._idx >= len(self._imgs_list):
+            self.testing = False
+        
+        bands = ['h','j','v','z']
+        
+        x = fits.getdata(os.path.join(self._imgs_dir, source))
+        
+        tmp_x = []
+        for i in range(4):
+            if bands[i] in self._bands:
+                tmp_x.append(x[:,:,i])
+        
+        x = np.dstack(tmp_x).reshape(1,84,84,len(self._bands))
+        
+        
+        y = self._lbls.loc[self._lbls['ID']=='GDS_'+ source[:-5], self._lbl_cols]
+        y = y.values.reshape(self._num_classes)
+        
+        
+        return (x,y)
+
+       
     # Helper 
     @staticmethod
     def _rescale_label(y):

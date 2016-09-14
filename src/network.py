@@ -223,7 +223,10 @@ class ExperimentalNet:
      
 class Resnet:
     @staticmethod
-    def get_network(x, block_config, is_training=True, use_2016_update=False):
+    def get_network(x, block_config, 
+                    is_training=True, 
+                    global_avg_pool=False,
+                    use_2016_update=False):
         n_classes = 5        
         
         shp =x.get_shape().as_list()
@@ -285,32 +288,51 @@ class Resnet:
                     if first:
                         in_dim *= 2
 
-        # TODO this should be converted to global average pooling        
-        fc_transform = tf.reshape(x, [batch_size, -1])        
-        
-        
-        # fully connected        
-        transformed_dim = fc_transform.get_shape().as_list()[1]
-        fc_weights = {
-            'wf1': Resnet._make_weights([transformed_dim, 2048], 'wf1'),
-            # fully coneected 2048 inputs, 2048 outputs
-            'wf2': Resnet._make_weights([2048, 2048], 'wf2'),
-            # 2048 inputs, 5 outputs (class prediction)
-            'out': Resnet._make_weights([2048, n_classes], 'out')
-        }
-            
-        fc_biases = {
-            'bf1': tf.Variable(tf.constant(0.01, shape=[2048])),
-            'bf2': tf.Variable(tf.constant(0.01, shape=[2048])),
-            'out': tf.Variable(tf.constant(0.1, shape=[n_classes]))
-        }        
 
-        fc1 = Resnet._fc(fc_transform, fc_weights['wf1'], fc_biases['bf1'], tf.nn.relu)
-        fc2 = Resnet._fc(fc1, fc_weights['wf2'], fc_biases['bf2'], tf.nn.relu)
+        output = None
         
-        # output
-        # removed activation function for tf crossentropy loss
-        output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], None)
+        # conclude the network with global average pooling
+        if global_avg_pool:
+            with tf.variable_scope('out'):
+                w = Resnet._make_weights([1,1,in_dim,n_classes], 'weights')            
+                x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
+                
+                shp = x.get_shape().as_list()
+                
+                x = Resnet._avg_pool(x, shp[1])
+                # avg_pool returns the shape [batch_size,1,1,n_clases]
+                # reshape to make it compatible with the label
+                output = tf.reshape(x, [batch_size, 5])
+
+        # conclude the network with fully connected layers
+        else:       
+            fc_transform = tf.reshape(x, [batch_size, -1])        
+            
+            
+            # fully connected        
+            transformed_dim = fc_transform.get_shape().as_list()[1]
+            fc_weights = {
+                'wf1': Resnet._make_weights([transformed_dim, 2048], 'wf1'),
+                # fully coneected 2048 inputs, 2048 outputs
+                'wf2': Resnet._make_weights([2048, 2048], 'wf2'),
+                # 2048 inputs, 5 outputs (class prediction)
+                'out': Resnet._make_weights([2048, n_classes], 'out')
+            }
+                
+            fc_biases = {
+                'bf1': tf.Variable(tf.constant(0.01, shape=[2048])),
+                'bf2': tf.Variable(tf.constant(0.01, shape=[2048])),
+                'out': tf.Variable(tf.constant(0.1, shape=[n_classes]))
+            }        
+    
+            fc1 = Resnet._fc(fc_transform, fc_weights['wf1'], fc_biases['bf1'], tf.nn.relu)
+            fc2 = Resnet._fc(fc1, fc_weights['wf2'], fc_biases['bf2'], tf.nn.relu)
+            
+            # output
+            if is_training:
+                output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], None)
+            else:
+                output = Resnet._fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
                 
         return output
         
@@ -452,6 +474,11 @@ class Resnet:
     def _max_pool(img, k, pad='VALID'):
         ks = [1, k, k, 1]
         return tf.nn.max_pool(img, ksize=ks, strides=ks, padding=pad)
+
+    @staticmethod
+    def _avg_pool(x, k):
+        ks = [1, k, k, 1]
+        return tf.nn.avg_pool(x, ksize=ks, strides=ks, padding='VALID')
 
     @staticmethod
     def _fc(x, w, b, act):
