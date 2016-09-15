@@ -144,9 +144,6 @@ with tf.Session() as sess:
             test_rmse = sqrt(test_rmse / float(test_size))
             print colorama.Fore.YELLOW + 'Test RMSE:{}'.format(test_rmse)
 
-            cPickle.dump(lbls, open('lbls_{}'.format(epoch), 'wb'))
-            cPickle.dump(preds, open('preds_{}'.format(epoch), 'wb'))
-
             if save_progress and test_rmse < min_rmse:
                 print 'Saving checkpoint'
                 saver.save(sess, model_dir, global_step=epoch)
