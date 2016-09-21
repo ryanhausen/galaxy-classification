@@ -12,12 +12,12 @@ import tensorflow as tf
 colorama.init(autoreset=True)
 
 # PARAMS
-batch_size = 229
+batch_size = 110
 train_size = 0.8
 n_classes = 5
 decay_steps = 150
 decay_base = 0.96
-epoch_reduce = None#[100]
+epoch_reduce = None#[100, 120]
 # used to be .0001
 start_learning_rate = .1
 momentum = 0.9
@@ -53,7 +53,10 @@ learning_rate = tf.Variable(start_learning_rate)
 
 #net = ExperimentalNet.get_network(x)
 #net = res_net(x)
-net = Resnet.get_network(x, block_config, global_avg_pool=False, use_2016_update=True)
+net = Resnet.get_network(x, block_config,
+                         global_avg_pool=True,
+                         use_2016_update=True, 
+                         is_training=train)
 
 #cost = tf.reduce_mean(tf.squared_difference(net, y))
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(net, y))
@@ -123,6 +126,7 @@ with tf.Session() as sess:
             
             lbls = []
             preds = []
+            sources = []
             
             # test
             test_step = 1
@@ -130,10 +134,11 @@ with tf.Session() as sess:
             test_size = 0
             while dh.testing:
                 test_size += batch_size
-                batch_xs, batch_ys= dh.get_next_batch()
+                ids, batch_xs, batch_ys= dh.get_next_batch(include_ids=True)
 
+                sources.append(ids)
                 lbls.append(batch_ys)
-                preds.append(sess.run(net, feed_dict={x: batch_xs}))
+                preds.append(sess.run(tf.nn.softmax(net), feed_dict={x: batch_xs}))
 
 
                 _rmse = sess.run(rmse_acc, feed_dict={x: batch_xs, y: batch_ys})
@@ -151,6 +156,7 @@ with tf.Session() as sess:
                 
                 cPickle.dump(lbls, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
                 cPickle.dump(preds, open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
+                cPickle.dump(sources, open('../report/model_out/srcs_{}.p'.format(epoch), 'wb'))
 
 
             with open(test_progress , mode='a') as f:
@@ -160,6 +166,8 @@ with tf.Session() as sess:
 
             epoch += 1
     else:
+        img_id = 'deep2_4222'     
+        
         ckpt = tf.train.get_checkpoint_state(model_dir)
 
         dh = DataHelper(batch_size=None)
@@ -174,7 +182,7 @@ with tf.Session() as sess:
         while dh.testing:
             print dh._idx
             
-            x_in, y = dh.get_next_example()
+            x_in, y = dh.get_next_example(img_id=img_id)
             y_hat = sess.run(net, feed_dict={x: x_in})
             
             output += ','.join(['{0:.9f}'.format(i) for i in np.append(y,y_hat)]) + '\n'

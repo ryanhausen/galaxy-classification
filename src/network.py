@@ -229,7 +229,7 @@ class Resnet:
                     use_2016_update=False):
         n_classes = 5        
         
-        shp =x.get_shape().as_list()
+        shp = x.get_shape().as_list()
         batch_size = shp[0]
         channels = shp[3]        
 
@@ -300,7 +300,7 @@ class Resnet:
                 shp = x.get_shape().as_list()
                 
                 x = Resnet._avg_pool(x, shp[1])
-                # avg_pool returns the shape [batch_size,1,1,n_clases]
+                # avg_pool returns the shape [batch_size,1,1,n_classes]
                 # reshape to make it compatible with the label
                 output = tf.reshape(x, [batch_size, 5])
 
@@ -435,20 +435,18 @@ class Resnet:
 
     @staticmethod
     def _batch_norm_layer(x,is_training=True):
-        bn = None        
-        
-        if is_training:
-            bn = batch_norm(x, decay=0.999, center=True, scale=True,
-                            updates_collections=None,
-                            is_training=True,
-                            reuse=None,
-                            trainable=True)
-        else:
-            bn = batch_norm(x, decay=0.999, center=True, scale=True,
-                            updates_collections=None,
-                            is_training=False,
-                            reuse=True,
-                            trainable=True)
+
+        bn = batch_norm(x, decay=0.999, center=True, scale=True,
+                        updates_collections=None,
+                        is_training=is_training,
+                        reuse=None,
+                        trainable=True)
+#        else:
+#            bn = batch_norm(x, decay=0.999, center=True, scale=True,
+#                            updates_collections=None,
+#                            is_training=False,
+#                            reuse=True,
+#                            trainable=True)
         return bn
 
 

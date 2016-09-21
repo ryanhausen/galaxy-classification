@@ -162,7 +162,7 @@ class DataHelper(object):
         
         return img
     
-    def get_next_batch(self):
+    def get_next_batch(self, include_ids=False):
         if self.training:        
             end_idx = self._idx + self._batch_size
             sources = self._train_imgs[self._idx:end_idx]
@@ -205,7 +205,10 @@ class DataHelper(object):
             else:
                 self._idx = end_idx
             
-            return (x, y)
+            if include_ids:
+                return (sources, x, y)
+            else:
+                return (x, y)
         else:
             end_idx = self._idx + self._batch_size
             sources = self._test_imgs[self._idx:end_idx]
@@ -241,7 +244,10 @@ class DataHelper(object):
             else:
                 self._idx = end_idx
             
-            return (x, y)
+            if include_ids:
+                return (sources, x, y)
+            else:
+                return (x, y)
             
     def get_class_distribution(self):
         cls_count_train = np.zeros([5,])
@@ -266,14 +272,19 @@ class DataHelper(object):
             
         return (cls_count_train, cls_count_test)
 
-    def get_next_example(self):
-        source = self._imgs_list[self._idx]
-        self._idx += 1
+    def get_next_example(self, img_id=None):
+        bands = ['h','j','v','z']
+    
+        source = None
+        if img_id:
+            source = img_id + '.fits'
+            self.testing = False
+        else:        
+            source = self._imgs_list[self._idx]
+            self._idx += 1
         
         if self._idx >= len(self._imgs_list):
             self.testing = False
-        
-        bands = ['h','j','v','z']
         
         x = fits.getdata(os.path.join(self._imgs_dir, source))
         
@@ -287,7 +298,6 @@ class DataHelper(object):
         
         y = self._lbls.loc[self._lbls['ID']=='GDS_'+ source[:-5], self._lbl_cols]
         y = y.values.reshape(self._num_classes)
-        
         
         return (x,y)
 
