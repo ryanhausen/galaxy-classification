@@ -30,7 +30,10 @@ class CandleNet:
             raise NotImplemented()
 
         def fc(x, w, b, act):
-            return act(tf.add(tf.matmul(x, w), b))
+            if act:
+                return act(tf.add(tf.matmul(x, w), b))
+            else:
+                return tf.add(tf.matmul(x, w), b)
 
         def conv_net(_X, _weights, _biases):
             # First convolution layer
@@ -77,7 +80,7 @@ class CandleNet:
 
             # Output
             # https://www.tensorflow.org/versions/r0.8/api_docs/python/nn.html#sigmoid
-            output = fc(fc2, _weights['out'], _biases['out'], tf.nn.softmax)
+            output = fc(fc2, _weights['out'], _biases['out'], None)
             return output
 
         # Model Helpers --------------------------------------------------------
@@ -510,7 +513,7 @@ class DenseNet:
             # Dense Bloack
             scope = 'block_{}'.format(i)
             with tf.variable_scope(scope):
-                w, in_dim = DenseNet._make_block_weights(layers_per_block, scope)                
+                w, in_dim = DenseNet._make_block_weights(layers_per_block,in_dim,growth_rate,scope)                
                 x = DenseNet._dense_block(x, w, layers_per_block, is_training=is_training)
                 
             scope = 'transition' + scope
