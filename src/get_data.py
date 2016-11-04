@@ -30,7 +30,7 @@ data_ftp_dir = 'pub/jeyhan/candels/gds2/'
 labels_ftp_url = 'cdsarc.u-strasbg.fr'
 labels_ftp_dir = 'pub/cats/J/ApJS/221/11'
 
-RUN_PARALLEL = True
+RUN_PARALLEL = False
 
 # Helpers ---------------------------------------------------------------------
 def _get_ftp(url, location, path=None):
@@ -369,7 +369,7 @@ else:
         process_image(args)
 
 # clean up
-rmtree(tmp_dir, ignore_errors=True)
+#rmtree(tmp_dir, ignore_errors=True)
 # DATA ------------------------------------------------------------------------
 
 # LABELS ----------------------------------------------------------------------

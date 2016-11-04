@@ -305,7 +305,7 @@ class Resnet:
                 x = Resnet._avg_pool(x, shp[1])
                 # avg_pool returns the shape [batch_size,1,1,n_classes]
                 # reshape to make it compatible with the label
-                output = tf.reshape(x, [batch_size, 5])
+                output = tf.reshape(x, [-1, 5])
 
         # conclude the network with fully connected layers
         else:       

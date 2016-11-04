@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from random import shuffle, randint
 from astropy.io import fits
+from copy import deepcopy
+
 
 from PIL import Image
 
@@ -179,7 +181,8 @@ class DataHelper(object):
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)
                                                 
-                x.append(x_tmp)
+                x.append(x_tmp.copy())
+                del x_tmp
 
                 # for the labels we need to prefix GDS_
                 s_id = 'GDS_' + s[:-5]                  
@@ -209,9 +212,8 @@ class DataHelper(object):
                 return (sources, x, y)
             else:
                 return (x, y)
-        else:
-            end_idx = self._idx + self._batch_size
-            sources = self._test_imgs[self._idx:end_idx]
+        else:            
+            sources = self._test_imgs[:]            
             bands = ['h','j','v','z']            
             
             x = []
@@ -229,8 +231,11 @@ class DataHelper(object):
                             tmp.append(raw[:,:,i])
 
                     raw = np.dstack(tmp)                            
-                            
-                x.append(raw)                                
+                
+                # to avoid os errors copy to a new mem location and 
+                # remove the file handle
+                x.append(deepcopy(raw))                                
+                del raw                
                 
                 s_id = 'GDS_' + s[:-5]                
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
@@ -238,11 +243,6 @@ class DataHelper(object):
             
             x = np.array(x)
             y = np.array(y)       
-            
-            if end_idx + self._batch_size >= len(self._test_imgs):            
-                self.testing = False
-            else:
-                self._idx = end_idx
             
             if include_ids:
                 return (sources, x, y)

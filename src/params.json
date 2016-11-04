@@ -23,7 +23,7 @@
 	"model_dir": "../models",
 	"train_progress": "../report/train_progress.csv",
 	"test_progress": "../report/test_progress.csv",
-	"save_progress": "true",
+	"save_progress": "false",
 	"train": "true",
 	"restore": "false"
 }
