@@ -2,7 +2,7 @@
 	"batch_size": 110,
 	"train_size": 0.8,
 	"n_classes": 5,
-	"epoch_limit": 100,
+	"epoch_limit": 1,
 	
 	"decay_steps": "",
 	"decay_base": 0.96,

@@ -1,6 +1,8 @@
 import sys
 import json
 import time
+import string
+
 
 from network import Resnet
 from datahelper import DataHelper
@@ -19,7 +21,6 @@ def main(config=None):
         global params
         global x
         global y
-        
         
         # config should be a dictionary
         if config:
@@ -107,31 +108,23 @@ def _train_network(net):
                 sess.run(optimize, feed_dict={x:batch_xs, y:batch_ys})
 
                 if iters.eval() % 20 == 0:
-                    evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, None)
-
+                    evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['train_progress'])
+                    
             #testing
             batch_xs, batch_ys = dh.get_next_batch()
-            results = evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, None, rtrn=params['rtrn_eval'])
-
-             
+            results = evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['test_progress'])
+            
             if params['save_progress'] and results[0] > top_result:
                 if params['print']:
                     print 'Saving checkpoint'
-                
                 saver.save(sess, params['model_dir'], global_step=iters)
                 top_result = results[0]
 
-
-
-            #   cPickle.dump(lbls, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
-            #   cPickle.dump(preds, open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
     if params['print']:
-        print 'Epoch took {} seconds'.format(complete = time.time() - start)
-    
+        print 'Epoch took {} seconds'.format(time.time() - start)
     
     if params['rtrn_eval']:
         print top_result
-
 
 def _use_network(net):
     raise NotImplementedError()
@@ -142,7 +135,50 @@ def _type_convert(dictionary):
             dictionary[k] = True
         elif dictionary[k] == 'false':
             dictionary[k] = False
-    
+        elif dictionary[k] == '':
+            dictionary[k] = None
+        elif dictionary[k][0] == '[':
+            # break up the list            
+            vals = dictionary[k][1:-1]
+            vals = [v.strip() for v in vals.split(',')]
+            
+            # figure out what type is in the list
+            val  = vals[0]
+            is_num = False
+            is_float = False
+
+            for v in val:
+                if v in string.digits:
+                    is_num = True
+                elif v == '.':
+                    is_float = True
+
+            
+            if is_num:
+                if is_float:
+                    vals = [float(v) for v in vals]                    
+                else:
+                    vals = [int(v) for v in vals]
+                
+            dictionary[k] = vals
+        elif type(dictionary[k]) == str:
+            is_num = False
+            is_float = False
+            for s in dictionary[k]:
+                if s in string.letters:
+                    is_num = False
+                    is_float = False
+                    break
+                elif s in string.digits:
+                    is_num = True
+                elif s == '.':
+                    is_float = True
+
+            if is_float:
+                dictionary[k] = float(dictionary[k])
+            elif is_num:
+                dictionary[k] = int(dictionary[k])
+        
     return dictionary
 
 if __name__ == '__main__':

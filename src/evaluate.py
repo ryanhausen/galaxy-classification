@@ -28,7 +28,7 @@ def _class_accuracy_part2(yscorrect):
         
     return classes
     
-def evaluate(session, net, x, y, xs, ys, save_to, rtrn=False, train=True):
+def evaluate(session, net, x, y, xs, ys, save_to, train=True):
     yh = tf.nn.softmax(net) if train else net
     y_arg = tf.argmax(ys, 1)
     
@@ -44,9 +44,8 @@ def evaluate(session, net, x, y, xs, ys, save_to, rtrn=False, train=True):
     out_s = [str(o) for o in outs]
     if save_to:
         with open(save_to, 'a') as f:
-            f.write(','.join(out_s))
+            f.write(','.join(out_s)+'\n')
     else:
         print '\n'.join(out_s)
 
-    if rtrn:
-        return outs
+    return outs
