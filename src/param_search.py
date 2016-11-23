@@ -4,9 +4,11 @@ Created on Sat Nov  5 15:30:41 2016
 
 @author: ryan
 """
+import os
+import subprocess as sp
+import multiprocessing mp
 
-import commands
-import multiprocessing
+from copy import deepcopy
 
 
 # async process
@@ -15,13 +17,26 @@ def _run_net(param_tuple):
     # main_params: single string of terminal args
     gpu_ids, main_params = param_tuple
     
-    command_string = 'CUDA_VISIBLE_DEVICES={} python main.py {}'
+    tmp_env = os.environ.copy()
+    tmp_env['CUDA_VISIBLE_DEVICES'] = gpu_ids
+    
+    cmd = ['python', 'main.py'] + main_params    
+    
+    
+    command_string = 'python main.py {}'
     command_string = command_string.format(gpu_ids, main_params)
     
-    stat, out = commands.getstatusoutput(command_string)
+    #stat, out = commands.getstatusoutput(command_string)
     
-    return (gpu_ids, stat)
+    return commands.getstatusoutput(command_string)
 
+def _dict_to_cmd(dictionary):
+    val = ''
+    
+    for k, v in dictionary.items():
+        val += '-{} {} '.format(k,v)
+        
+    return val
 
 def _get_default_params():
     None
@@ -35,8 +50,27 @@ def _param_search(gpus):
     best_params = {k:None for k in range_params.keys()}    
     
     jobs = {gpu:None for gpu in gpus}
-
-    for param, vals in range_params.items():
+    
+    for param in range_params.keys():
+        print 'Evaluating: {}'.format(param)        
+        
+        vals = deepcopy(range_params[param])
+        best = None
+        
+        
+        
+        
+        
+        
+    
+            
+        
+        
+    
+    
+    
+        
+    
         
 
 

@@ -25,5 +25,7 @@
 	"test_progress": "../report/test_progress.csv",
 	"save_progress": "false",
 	"train": "true",
-	"restore": "false"
+	"restore": "false",
+     "print":"false",
+     "rtrn_eval":"true"
 }

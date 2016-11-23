@@ -83,10 +83,16 @@ def _train_network(net):
     learning_rate_reduce = params['learning_rate_reduce']
 
     start = time.time()
+    # this should have a more general implementation, we chose 0 because 
+    # accuracy will grow as it improves
+    top_result = 0.0
     with tf.Session() as sess:
         sess.run(init)
 
         for epoch in range(1, params['epoch_limit']+1):
+            if params['print']:
+                print epoch
+            
             dh = DataHelper(batch_size=params['batch_size'],
                         train_size=params['train_size'],
                         label_noise=params['label_noise'],
@@ -105,16 +111,26 @@ def _train_network(net):
 
             #testing
             batch_xs, batch_ys = dh.get_next_batch()
-            evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, None)
+            results = evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, None, rtrn=params['rtrn_eval'])
 
-            #if params['save_progress'] and test_rmse < min_rmse:
-            #    print 'Saving checkpoint'
-            #    saver.save(sess, params['model_dir'], global_step=iters)
-            #    min_rmse = test_rmse
+             
+            if params['save_progress'] and results[0] > top_result:
+                if params['print']:
+                    print 'Saving checkpoint'
+                
+                saver.save(sess, params['model_dir'], global_step=iters)
+                top_result = results[0]
+
+
 
             #   cPickle.dump(lbls, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
             #   cPickle.dump(preds, open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
-    print '{} epochs took {} seconds'.format(params['epoch_limit'],time.time() - start)
+    if params['print']:
+        print 'Epoch took {} seconds'.format(complete = time.time() - start)
+    
+    
+    if params['rtrn_eval']:
+        print top_result
 
 
 def _use_network(net):
