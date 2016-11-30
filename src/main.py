@@ -153,12 +153,17 @@ def _type_convert(dictionary):
                 elif v == '.':
                     is_float = True
 
-            
+            # this is a list of numns            
             if is_num:
                 if is_float:
                     vals = [float(v) for v in vals]                    
                 else:
                     vals = [int(v) for v in vals]
+            # this is a list of strings
+            else:
+                vals = [str(v) for v in vals]
+
+                
                 
             dictionary[k] = vals
         elif type(dictionary[k]) == str:

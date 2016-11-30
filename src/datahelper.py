@@ -62,9 +62,9 @@ class DataHelper(object):
                 else:
                     num_train_examples -= batch_train
             
-                msg = 'Batch didnt divide evenly into training examples ' + \
-                      ' adjusted training size from {} to {}'
-                print msg.format(train_size, float(num_train_examples) /  float(len(self._imgs_list)))
+                #msg = 'Batch didnt divide evenly into training examples ' + \
+                #      ' adjusted training size from {} to {}'
+                #print msg.format(train_size, float(num_train_examples) /  float(len(self._imgs_list)))
             
             # we want to use the same test images every time so they are set 
             # aside before the shuffle
@@ -158,7 +158,7 @@ class DataHelper(object):
                 tmp.append(cpy_img)
         
         if len(tmp) > len(self._bands):
-            print img_id
+            raise Exception('Image {} didnt augment properlt'.format(img_id))
         
         return np.dstack(tmp)
         

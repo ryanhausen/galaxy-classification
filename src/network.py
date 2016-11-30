@@ -469,7 +469,7 @@ class Resnet:
         else:
             raise Exception('Shape should be an array of length 2 or 4')
 
-        return tf.Variable(tf.truncated_normal(shp, stddev=std))
+        return tf.Variable(tf.truncated_normal(shp, stddev=std), name=name)
     
     @staticmethod
     def _max_pool(img, k, pad='VALID'):
