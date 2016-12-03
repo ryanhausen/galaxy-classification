@@ -158,7 +158,7 @@ class DataHelper(object):
                 tmp.append(cpy_img)
         
         if len(tmp) > len(self._bands):
-            raise Exception('Image {} didnt augment properlt'.format(img_id))
+            raise Exception('Image {} didnt augment properly'.format(img_id))
         
         return np.dstack(tmp)
         

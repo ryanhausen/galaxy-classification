@@ -98,7 +98,7 @@ def _train_network(net):
                         train_size=params['train_size'],
                         label_noise=params['label_noise'],
                         bands=params['bands'],
-                        transform_func=params['trans_func'])
+                        transform_func=eval(params['trans_func']) if params['trans_func'] else None)
 
             if learning_rate_reduce and epoch in learning_rate_reduce:
                 sess.run(learning_rate.assign(learning_rate.eval() / 10.0))

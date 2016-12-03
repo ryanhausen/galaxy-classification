@@ -81,6 +81,14 @@ def _dict_to_cmd(dictionary):
             
     return cmd
 
+def _out_msg(msg, color):
+    if color:
+        print color + msg
+    else:
+        print msg
+    
+    _log(msg)
+
 def _log(msg):
     with open('./param_search_log', 'a') as f:
         f.write(msg + '\n')
@@ -133,27 +141,22 @@ def _param_search(gpus):
     # the current eval function is the top 1 accuracy so 0.0 is the poorest value
     best = 0.0    
     
-    for param in range_params.keys():
-        msg = 'Evaluating: {}'.format(param)
-        print Fore.CYAN + msg
-        _log(msg)
+    for param in range_params.keys():        
+        _out_msg('Evaluating: {}'.format(param), Fore.CYAN)
         
         vals = deepcopy(range_params[param])
         
         # we're using a stack so we'll pop values as we use them
         while len(vals) > 0:
-            msg = 'Checking for ready GPUs'
-            print Fore.BLUE + msg
-            _log(msg)
+            _out_msg('Checking for ready GPUs', Fore.BLUE)
             
             # check to see if any of the processes are done and run next config
             for gpu, job in jobs.items():
+                _out_msg('Checking GPU:{}'.format(gpu), Fore.YELLOW)
                 proc, tested_val, tested_param = job
                 # first time start                
                 if proc is None:
-                    msg = 'Starting Job on GPU: {}'.format(gpu)
-                    print Fore.MAGENTA + msg
-                    _log(msg)                    
+                    _out_msg('Starting Job on GPU: {}'.format(gpu), Fore.MAGENTA)                    
                     
                     run_num += 1
                     next_val = vals.pop()
@@ -164,14 +167,10 @@ def _param_search(gpus):
                     jobs[gpu][0].start()
                 # processed has finished its work
                 elif proc.is_alive() == False:
-                    
-                    msg = 'GPU: {} finished\nCurrent Best: {} Result: {}'.format(gpu, best, results[gpu])                    
-                    print Fore.GREEN + msg
-                    _log(msg)                    
+                    _out_msg('GPU: {} finished\nCurrent Best: {} Result: {}'.format(gpu, best, results[gpu]), Fore.GREEN)
                     
                     if results[gpu] > best:
-                        best = results[gpu]
-                        #best_params[param] = (tested_val, best)  
+                        best = results[gpu]  
 
                     tmp_best_params[tested_param].append(tested_val, results[gpu])
                     
@@ -179,9 +178,7 @@ def _param_search(gpus):
                         best_params[tested_param] = tmp_best_params[tested_param].get_best_val()
                         default_params[tested_param] = best_params[tested_param]
                             
-                    msg = 'Starting Job on GPU: {}'.format(gpu)
-                    print Fore.MAGENTA + msg
-                    _log(msg)                    
+                    _out_msg('Starting Job on GPU: {}'.format(gpu), Fore.MAGENTA)
 
                     run_num += 1
                     next_val = vals.pop()
@@ -190,19 +187,60 @@ def _param_search(gpus):
                     
                     param_tuple = (gpu, default_params, results)
                     
-                    jobs[gpu] = (mp.Process(target=_run_net, args=param_tuple), next_val)
+                    jobs[gpu] = (mp.Process(target=_run_net, args=param_tuple), next_val, param)
                     jobs[gpu][0].start()
+                else:
+                    _out_msg('GPU:{} busy'.format(gpu), Fore.YELLOW)
 
-            wait_time = 2*60
-            msg = 'Waiting {} seconds'.format(wait_time)
-            print Fore.YELLOW + msg
+            wait_time = 5*60
+            _out_msg('Waiting ~{} minutes'.format(wait_time / 60.), Fore.YELLOW )
             # None are finished, so wait and check again
             sleep(wait_time)
+
+    _out_msg('Queue is empty waiting for running jobs to finish',Fore.CYAN)
+
+    # we finished queing jobs however some may still be running
+    # check for running jobs and them either wait or exit
+    # at least one job is running
+    jobs_left = 1
+    while jobs_left > 0:
+        jobs_left = 0
+        for gpu, job in jobs.items():
+            proc, tested_val, tested_param = job
+            if proc is None:
+                _out_msg('GPU:{} finished working', Fore.RED)                
+            elif proc.is_alive():
+                _out_msg('GPU:{} still working'.format(gpu), Fore.YELLOW)
+                jobs_left += 1
+            else:
+                _out_msg('GPU: {} finished\nCurrent Best: {} Result: {}'.format(gpu, best, results[gpu]), Fore.GREEN)
+                if results[gpu] > best:
+                    best = results[gpu]
+            
+                tmp_best_params[tested_param].append(tested_val, results[gpu])
+        
+                if tmp_best_params[tested_param].at_capacity:
+                    best_params[tested_param] = tmp_best_params[tested_param].get_best_val()
+                    default_params[tested_param] = best_params[tested_param]
+
+                jobs[gpu] = (None, None, None)
+                
+        if jobs_left == 0:
+            break
+                
+        _out_msg('{} jobs still running'.format(jobs_left), Fore.YELLOW)
+        
+        wait_time = 5*60
+        _out_msg('Waiting ~{} minutes'.format(wait_time / 60.), Fore.YELLOW )
+        # None are finished, so wait and check again
+        sleep(wait_time)
 
     # save the best params
     with open('./best_params.json', 'w') as f:
         json.dump(best_params, f)
 
+    _out_msg('Search Complete', Fore.CYAN)
+
 if __name__ == "__main__":
     # pass a list of GPU ids
-    _param_search([0])
+    _param_search([0,1,2,3])
