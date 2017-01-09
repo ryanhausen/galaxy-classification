@@ -141,6 +141,7 @@ def _param_search(gpus):
     # the current eval function is the top 1 accuracy so 0.0 is the poorest value
     best = 0.0    
     
+    take_a_break = True
     for param in range_params.keys():        
         _out_msg('Evaluating: {}'.format(param), Fore.CYAN)
         
@@ -150,15 +151,18 @@ def _param_search(gpus):
         while len(vals) > 0:
             _out_msg('Checking for ready GPUs', Fore.BLUE)
             
+            if ~take_a_break:
+                take_a_break = True
+            
             # check to see if any of the processes are done and run next config
             for gpu, job in jobs.items():
                 _out_msg('Checking GPU:{}'.format(gpu), Fore.YELLOW)
                 proc, tested_val, tested_param = job
                 # first time start                
                 if proc is None:
-                    _out_msg('Starting Job on GPU: {}'.format(gpu), Fore.MAGENTA)                    
-                    
                     run_num += 1
+                    _out_msg('Starting run {} on GPU: {}'.format(run_num,gpu), Fore.MAGENTA)                    
+                                        
                     next_val = vals.pop()
                     default_params[param] = next_val
                     default_params = _create_param_env(default_params, run_num)
@@ -189,13 +193,18 @@ def _param_search(gpus):
                     
                     jobs[gpu] = (mp.Process(target=_run_net, args=param_tuple), next_val, param)
                     jobs[gpu][0].start()
+                    
+                    # break here to check that the queue still has items for the parameter
+                    take_a_break = False
+                    break;                    
                 else:
                     _out_msg('GPU:{} busy'.format(gpu), Fore.YELLOW)
 
-            wait_time = 5*60
-            _out_msg('Waiting ~{} minutes'.format(wait_time / 60.), Fore.YELLOW )
-            # None are finished, so wait and check again
-            sleep(wait_time)
+            if (take_a_break):
+                wait_time = 5*60
+                _out_msg('Waiting ~{} minutes'.format(wait_time / 60.), Fore.YELLOW )
+                # None are finished, so wait and check again
+                sleep(wait_time)
 
     _out_msg('Queue is empty waiting for running jobs to finish',Fore.CYAN)
 
