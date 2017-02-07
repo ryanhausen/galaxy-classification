@@ -42,7 +42,7 @@ class DataHelper(object):
         self._drop_band = len(bands) < 4
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
-        self._lbls = pd.read_csv(os.path.join(data_dir,'labels/labels.csv'))
+        self._lbls = pd.read_csv(os.path.join(data_dir,'labels/crushed_labels.csv'))
         self._noise_tbl = pd.read_csv(os.path.join(data_dir, 'noise/noise_range.csv'))
         self._lbl_cols = ['ClSph', 'ClDk', 'ClIr', 'ClPS', 'ClUn']
         self._num_classes = len(self._lbl_cols)

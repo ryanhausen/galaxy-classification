@@ -3,6 +3,8 @@ import json
 import time
 import string
 
+import cPickle
+
 
 from network import Resnet
 from datahelper import DataHelper
@@ -111,7 +113,7 @@ def _train_network(net):
                     evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['train_progress'])
                     
             #testing
-            batch_xs, batch_ys = dh.get_next_batch()
+            srcs, batch_xs, batch_ys = dh.get_next_batch(include_ids=True)
             results = evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['test_progress'])
             
             if params['save_progress'] and results[0] > top_result:
@@ -119,6 +121,15 @@ def _train_network(net):
                     print 'Saving checkpoint'
                 saver.save(sess, params['model_dir'], global_step=iters)
                 top_result = results[0]
+                
+                cPickle.dump(srcs, open('../report/model_out/srcs_{}.p'.format(epoch), 'wb'))
+                cPickle.dump(batch_ys, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
+                cPickle.dump(sess.run(tf.nn.softmax(net), feed_dict={x: batch_xs}), open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
+                
+                
+                
+                
+                
 
     if params['print']:
         print 'Epoch took {} seconds'.format(time.time() - start)
@@ -137,7 +148,7 @@ def _type_convert(dictionary):
             dictionary[k] = False
         elif dictionary[k] == '':
             dictionary[k] = None
-        elif dictionary[k][0] == '[':
+        elif type(dictionary[k]) not in  (float, int) and dictionary[k][0] == '[':
             # break up the list            
             vals = dictionary[k][1:-1]
             vals = [v.strip() for v in vals.split(',')]

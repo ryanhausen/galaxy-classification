@@ -8,6 +8,8 @@ import os
 import subprocess as sp
 import multiprocessing as mp
 import json
+from random import shuffle
+
 
 from colorama import init, Fore
 init(autoreset=True)
@@ -30,7 +32,6 @@ class capacity_list(object):
         self.items.append((paramval, score))
         self.at_capacity = len(self.items) == self.capacity
 
-    
     def get_best_val(self):
         best_param = None
         best_score = 0.0
@@ -57,7 +58,16 @@ def _run_net(gpu_ids, main_params, result):
     
     proc = sp.Popen(cmd, env=tmp_env, stdout=sp.PIPE)
     
-    result[gpu_ids] = float(proc.communicate()[0].strip())
+    raw_rtn_val = None
+    rtn_val = None
+    try:
+        raw_rtn_val = proc.communicate()[0].strip()
+        rtn_val = float(raw_rtn_val)
+    except ValueError:
+        raise Exception('Expected float. Received {}'.format(raw_rtn_val))
+    
+    
+    result[gpu_ids] = rtn_val
 
 def _dict_to_cmd(dictionary):
     cmd = []
@@ -142,7 +152,10 @@ def _param_search(gpus):
     best = 0.0    
     
     take_a_break = True
-    for param in range_params.keys():        
+    
+    shuffled_params = range_params.keys()
+    shuffle(shuffled_params)
+    for param in shuffled_params:        
         _out_msg('Evaluating: {}'.format(param), Fore.CYAN)
         
         vals = deepcopy(range_params[param])
@@ -182,7 +195,7 @@ def _param_search(gpus):
                         best_params[tested_param] = tmp_best_params[tested_param].get_best_val()
                         default_params[tested_param] = best_params[tested_param]
                             
-                    _out_msg('Starting Job on GPU: {}'.format(gpu), Fore.MAGENTA)
+                    _out_msg('Starting Job {} on GPU: {}'.format(run_num, gpu), Fore.MAGENTA)
 
                     run_num += 1
                     next_val = vals.pop()
@@ -217,7 +230,7 @@ def _param_search(gpus):
         for gpu, job in jobs.items():
             proc, tested_val, tested_param = job
             if proc is None:
-                _out_msg('GPU:{} finished working', Fore.RED)                
+                _out_msg('GPU:{} finished working'.format(gpu), Fore.RED)                
             elif proc.is_alive():
                 _out_msg('GPU:{} still working'.format(gpu), Fore.YELLOW)
                 jobs_left += 1
