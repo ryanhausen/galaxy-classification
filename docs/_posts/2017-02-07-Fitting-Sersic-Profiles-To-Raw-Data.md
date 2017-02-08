@@ -54,7 +54,7 @@ def sersic_optimize(x, m, y):
 	x: an indexed object with two items Ie=x[0], Re=[1]
 	m: the m param for the sersic profile
 	y: the measured surface brightness profile of the object
-  	"""
+	"""
 
     pix = .06  # arc/pixel
     bins = 100 # number of bins 
@@ -68,9 +68,25 @@ def sersic_optimize(x, m, y):
     return ((s[y>0]-y[y>0])**2).mean()
 ~~~
 
-An example of usage for GDS_deep2_10016 in the z band:
+An example of usage for GDS_deep2_10016(classified as a disk) in the z band:
 
 ~~~python
+from astropy.io import fits
+from scipy.optimize import fmin
 
+# get segmap and image
+segmap = fits.getdata('path_to_segmap.fits')
+img = fits.getdata('path_to_img.fits')[:,:,3]
+
+#remove noise
+img[segmap==0] = 0.0
+
+# get the measured surface brightness profile
+_, y = get_surface_brightness_profile(img)
+
+# get the fit parameters
+m = 1.0
+init_Ie_Re = [1.0, 0.3]
+opt_vals = fmin(sersic_optimize, init_Ie_Re, args(m, y))
 ~~~
 
