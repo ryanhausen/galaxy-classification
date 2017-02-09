@@ -116,3 +116,17 @@ Graph of the measured surface brightness profile against the fitted surface brig
 
 Seems to fit the data. The quick drop-off is because we  cut out the noise. 
 
+Here is a graph of the fitted values for spheroid and disk.
+
+![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07-disk-iere-graph.png)
+
+![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07-spheroid-iere-graph.png)
+
+Some of the values seem to be outliers, here is a closer view of the graph.
+
+![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07-disk-iere-graph-zoom.png)
+
+![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07-spheroid-iere-graph-zoom.png)
+
+These graphs seem to make sense considering the morphology. 
+
