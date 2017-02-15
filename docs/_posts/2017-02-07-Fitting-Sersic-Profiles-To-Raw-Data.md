@@ -72,11 +72,11 @@ An example of usage for GDS_deep2_10016(disk) in the z band:
 
 Original Image:
 
-![zband]({{ site.url }}/assets/imgs/2017-02-07-img.png)
+![zband]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-img.png)
 
 With noise removed:
 
-![segmap]({{ site.url }}/assets/imgs/2017-02-07-segmap.png)
+![segmap]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-segmap.png)
 
 Copy the values from these pages as string s in the code below to run it locally:
 
@@ -112,21 +112,21 @@ opt_vals = fmin(sersic_optimize, init_Ie_Re, args(m, y))
 
 Graph of the measured surface brightness profile against the fitted surface brightness profile
 
-![graph]({{ site.url }}/assets/imgs/2017-02-07-graph.png)
+![graph]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-graph.png)
 
 Seems to fit the data. The quick drop-off is because we  cut out the noise. 
 
 Here is a graph of the fitted values for spheroid and disk.
 
-![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07-disk-iere-graph.png)
+![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-disk-iere-graph.png)
 
-![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07-spheroid-iere-graph.png)
+![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-spheroid-iere-graph.png)
 
 Some of the values seem to be outliers, here is a closer view of the graph.
 
-![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07-disk-iere-graph-zoom.png)
+![disk-fitted]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-disk-iere-graph-zoom.png)
 
-![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07-spheroid-iere-graph-zoom.png)
+![spheroid-fitted]({{ site.url }}/assets/imgs/2017-02-07/2017-02-07-spheroid-iere-graph-zoom.png)
 
 These graphs seem to make sense considering the morphology. 
 
