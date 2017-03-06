@@ -102,7 +102,7 @@ With all the values we then plot the $84^{th}$, $50^{th}$.and $16^{th}$ percenti
 
 <ul class="photo-gallery">
   {% for image in page.images %}
-    <li><img src="{{ image.image_path }}" alt="{{ image.title}}"/></li>
+    <li><img src="{{ site.url }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
   {% endfor %}
 </ul>
 
@@ -110,7 +110,7 @@ For reference added in is an analytic disk and spheroid created without noise. F
 
 <ul class="photo-gallery">
   {% for image in page.analytic_images %}
-    <li><img src="{{ image.image_path }}" alt="{{ image.title}}"/></li>
+    <li><img src="{{ site.url }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
   {% endfor %}
 </ul>
 
