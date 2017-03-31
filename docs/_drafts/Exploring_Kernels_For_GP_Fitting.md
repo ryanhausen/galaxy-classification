@@ -22,9 +22,18 @@ The data used for fitting each process is the measured values($16^{th}$, median,
 Definition:
 $$k(x, x')=\exp(\frac{|x-x'|^2}{2l^2})$$
 
-Prior:
+![measured-data]({{ site.url }}/assets/imgs/2017-03-28/rbf-fitted.png)
 
-![rbf-prior]({{ site.url }}/assets/imgs/2017-03-28/rb_prior.png)
+![samples]({{ site.url }}/assets/imgs/2017-03-28/rbf-samples.png)
+
+
+
+### Matern
+
+
+
+
+
 
 
 
