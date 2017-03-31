@@ -1,7 +1,7 @@
 ---
 layout: default
 title: "Exploring Kernels For GP Fitting"
-date: 2017-03-28
+date: 2017-03-31
 categories: synth-images, gaussian-process
 ---
 
