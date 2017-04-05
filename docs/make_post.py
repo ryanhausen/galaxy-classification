@@ -31,8 +31,8 @@ os.mkdir(f'./assets/imgs/{date}')
 
 # make draft
 print(f'Creating draft post {hidden_title}')
-with open(f'./_drafts/{hidden_title}.md', 'w') as f:
-    mathjax = '{% include matjax.html  %}\n'
+with open(f'./_drafts/{date}-{hidden_title}.md', 'w') as f:
+    mathjax = '{% include mathjax.html  %}\n'
     post_meta = '---\nlayout: default\ntitle: {}\ndate: {}\ncategories:{}\n---\n\n'.format(display_title,date,tags)
     f.write(post_meta + mathjax)
     
