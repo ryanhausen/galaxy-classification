@@ -16,6 +16,9 @@ def _top_2(yh,ys):
 def _rmse(yh, ys):
     return tf.sqrt(tf.reduce_mean(tf.squared_difference(yh,ys)))
 
+def _cross_entropy(yh, ys):
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(yh, ys))
+
 def _class_accuracy_part1(yh,ys):
     return ys, tf.to_float(tf.nn.in_top_k(yh,ys,1))
 
@@ -32,7 +35,7 @@ def evaluate(session, net, x, y, xs, ys, save_to, train=True):
     yh = tf.nn.softmax(net) if train else net
     y_arg = tf.argmax(ys, 1)
     
-    funcs = [_top_1(yh,y_arg), _top_2(yh,y_arg), _rmse(yh,ys), _class_accuracy_part1(yh,y_arg)]    
+    funcs = [_top_1(yh,y_arg), _top_2(yh,y_arg), _rmse(yh,ys), _cross_entropy(net,ys), _class_accuracy_part1(yh,y_arg)]    
     outs = []
     
     for f in funcs:

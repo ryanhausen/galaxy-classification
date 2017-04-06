@@ -1,2 +1,6 @@
 *.tar.gz
 *.csv
+/imgs/
+/noise/
+/labels/
+/_noise/

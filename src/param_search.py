@@ -54,7 +54,7 @@ def _run_net(gpu_ids, main_params, result):
     
     cmd = ['python', 'main.py'] + _dict_to_cmd(main_params)
     
-    #print cmd    
+    print cmd    
     
     proc = sp.Popen(cmd, env=tmp_env, stdout=sp.PIPE)
     

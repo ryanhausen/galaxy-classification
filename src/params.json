@@ -2,23 +2,23 @@
 	"batch_size": 110,
 	"train_size": 0.8,
 	"n_classes": 5,
-	"epoch_limit": 1,
+	"epoch_limit": 150,
 	
 	"decay_steps": "",
 	"decay_base": 0.96,
-	"learning_rate_reduce": "",
-	"start_learning_rate": 0.0001,
-	"momentum": 0.9,
+	"learning_rate_reduce": [110, 140], 
+	"start_learning_rate": 0.1, 
+	"momentum": 0.8,
 	"nesterov": "true",
 	
 	"bands": ["v", "z", "h", "j"],
-	"block_config": [3, 3, 3, 3],
+	"block_config": [9,9,18,27], 
 	"2016_update": "true",
 	"global_avg_pool": "true",
 	
 	"trans_func": "",
 	"band_trans_func": "",
-	"label_noise": 0.001,
+	"label_noise": 0.01,
 	
 	"model_dir": "../models",
 	"train_progress": "../report/train_progress.csv",
@@ -27,5 +27,6 @@
 	"train": "true",
 	"restore": "false",
      "print":"false",
-     "rtrn_eval":"true"
+     "rtrn_eval":"true",
+     "print":"true"
 }
