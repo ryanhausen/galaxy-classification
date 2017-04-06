@@ -4,6 +4,7 @@
 # See: https://jekyllrb.com/docs/themes/#overriding-theme-defaults
 layout: default
 ---
+{% include kanban.html %}
 
 <div class="posts">
   {% for post in site.posts %}
