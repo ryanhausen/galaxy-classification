@@ -39,8 +39,12 @@ The eigenvectors of this matrix correspond to the major and minor axis of the so
 
 The source we'll use is Deep 2 10064:
 
-![src-img]({{site.url}}/assets/imgs/2014-04-07/src-image.png)
-With the segmap
-![segmap]({{site.url}}/assets/imgs/2014-04-07/segmap.png)
+![src-img]({{ site.url }}/assets/imgs/2017-04-07/src-image.png)
 
-First find the effective radius by summing values from the center of the source upto half of the total 
+With the segmap
+
+![segmap]({{ site.url }}/assets/imgs/2017-04-07/segmap.png)
+
+Here are the major(red) and minor(blue) axis as measured from the h band plotted over the segmap with the effective radius highlighted in yellow.
+
+![with-axis]({{ site.url }}/assets/imgs/2017-04-07/with-axis.png)
