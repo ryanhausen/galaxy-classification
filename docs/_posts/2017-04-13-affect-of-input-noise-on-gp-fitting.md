@@ -20,3 +20,17 @@ These were produced using H-band spheroid data
 ### $\sigma_n*10$
 
 ![sigma-10]({{ site.url }}/assets/imgs/2017-04-13/sigma-10.png)
+
+## Including the changed meaure in green
+
+### No change to $\sigma_n$
+
+![no-change]({{ site.url }}/assets/imgs/2017-04-13/no-change-alt.png)
+
+### $\sigma_n*2$
+
+![sigma-2]({{ site.url }}/assets/imgs/2017-04-13/sigma-2-alt.png)
+
+### $\sigma_n*10$
+
+![sigma-10]({{ site.url }}/assets/imgs/2017-04-13/sigma-10-alt.png)
