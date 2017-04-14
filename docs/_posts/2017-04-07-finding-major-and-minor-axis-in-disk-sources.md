@@ -27,11 +27,16 @@ To get the major and minor axis of the source we need to construct a covariance 
 $$\text{cov}[I(x,y)]=\left[\begin{array}{ c c }\mu'_{20} & \mu'_{11} \\ \mu'_{11} & \mu'_{02} \end{array} \right]$$
 
 Where :
-$\bar{x} = M_{10}/M_{00}$
-$\bar{y} = M_{01}/M_{00}$
-$\mu'_{20} = \mu_{20}/\mu_{00} = M_{20}/M_{00} - \bar{x}^2$
-$\mu'_{02} = \mu_{02}/\mu_{00} = M_{02}/M_{00} - \bar{y}^2$
-$\mu'_{11} = \mu_{11}/\mu_{00} = M_{11}/M_{00} - \bar{x}\bar{y}$
+
+$$\bar{x} = M_{10}/M_{00}$$
+
+$$\bar{y} = M_{01}/M_{00}$$
+
+$$\mu'_{20} = \mu_{20}/\mu_{00} = M_{20}/M_{00} - (\bar{x})^2$$
+
+$$\mu'_{02} = \mu_{02}/\mu_{00} = M_{02}/M_{00} - (\bar{y})^2$$
+
+$$\mu'_{11} = \mu_{11}/\mu_{00} = M_{11}/M_{00} - \bar{x}\bar{y}$$
 
 The eigenvectors of this matrix correspond to the major and minor axis of the source.
 
