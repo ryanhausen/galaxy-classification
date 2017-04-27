@@ -2,6 +2,11 @@ import math
 import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import batch_norm as batch_norm
 
+class HybridNet:
+    @staticmethod
+    def get_network(x):
+        None
+
 
 class CandleNet:
     @staticmethod
