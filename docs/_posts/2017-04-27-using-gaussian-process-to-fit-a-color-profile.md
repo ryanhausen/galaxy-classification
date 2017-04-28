@@ -10,8 +10,8 @@ categories:
 ### Color Band Ratios
 For each source we take the surface brightness profile normalized to $I_e$ and $R_e$ in each band of light and meausre as a ratio to the H band. This gives a distribution of color ratios per normalized radial value. These are seprarted into 20 bins. This graph shows the mean and the mean plus-minus one standard deviation:
 
-![color-measured-sph]({{site.url}}/assets/imgs/2017-04-27/colored-measured-sph.png)
-![color-measured-disk]({{site.url}}/assets/imgs/2017-04-27/colored-measured-disk.png)
+![color-measured-sph]({{site.url}}/assets/imgs/2017-04-27/color-measured-sph.png)
+![color-measured-disk]({{site.url}}/assets/imgs/2017-04-27/color-measured-disk.png)
 
 ### Gaussian Process Fitting for Color Band Ratios
 With these values we fit this output to a Gaussian Process. The $\alpha$ parameter of the gaussian process by which we indicate datapoint specific noise has only a single dimension, so I take the mean of the standard deviation of the three ratios for that parameter. The output looks like this:
