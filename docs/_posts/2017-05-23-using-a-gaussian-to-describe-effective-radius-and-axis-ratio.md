@@ -27,9 +27,9 @@ UPDATE: fixed wrong link for Disk Gaussian and added histograms based data drawn
 
 ![sph-ar-re-gauss-scatter]( {{site.url}}/assets/imgs/2017-05-23/sph-ar-re-gauss-scatter.png)
 
-![sph-ar-re-gauss]( {{site.url}}/assets/imgs/2017-05-23/sph-ar-re-gauss.png)
+![disk-ar-re-gauss]( {{site.url}}/assets/imgs/2017-05-23/disk-ar-re-gauss.png)
 
-![sph-ar-re-gauss-scatter]( {{site.url}}/assets/imgs/2017-05-23/sph-ar-re-gauss-scatter.png)
+![disk-ar-re-gauss-scatter]( {{site.url}}/assets/imgs/2017-05-23/disk-ar-re-gauss-scatter.png)
 
 ### Samples Drawn From Gaussian
 
