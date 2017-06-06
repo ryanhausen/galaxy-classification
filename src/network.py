@@ -6,6 +6,7 @@ class SimpleNet:
     seed = None
 
     @staticmethod
+    #https://arxiv.org/abs/1502.01852
     def var_init(shape, dtype, partition_info=None):
         std = None
 
@@ -333,6 +334,176 @@ class ExperimentalNet:
         output = fc(fc2, fc_weights['out'], fc_biases['out'], tf.nn.softmax)
 
         return output
+
+# https://arxiv.org/abs/1512.03385
+# https://arxiv.org/abs/1603.05027
+class ResNet:
+    # class helper variables
+    random_seed = None
+    X = tf.placeholder(tf.float32, [None, 84, 84, 4])
+    Y = tf.placeholder(tf.float32, [None, 5])
+
+    @staticmethod
+    def build_graph(x, block_config, is_training):
+        """
+            x: a tf.placeholder
+            block_config: list of ints that determines the number of residual
+                          blocks in each block_segment
+        """
+        # if the network is large use the bottleneck architecture
+        is_large = sum(block_config) * 2 >= 50
+
+        # this initial convolution reduces our image WxH by half
+        with tf.variable_scope('conv1'):
+            x = ResNet.conv1(x)
+
+        # begin residual blocks
+        for segment_idx in range(len(block_config)):
+            num_blocks = block_config[segment_idx]
+
+            for block_idx in range(num_blocks):
+                with tf.variable_scope(f'seg{segment_idx}block{block_idx}'):
+                    # if this is the first block the WxH are reduced and  the number
+                    # of filters is increased
+                    reduce = block_idx == 0
+                    if is_large:
+                        x = ResNet.bottleneck(x, reduce, segment_idx==0)
+                    else:
+                        x = ResNet.block(x, reduce)
+
+        with tf.variable_scope('out'):
+            x = ResNet.global_average_pooling(x)
+
+        if is_training:
+            return x
+        else:
+            return tf.nn.softmax(x)
+
+    @staticmethod
+    def global_average_pooling(x):
+        in_channels = x.get_shape().as_list()[-1]
+
+        k = [1, 1, in_channels, 5]
+        w = tf.get_variable('w', shape=k, initializer=ResNet.var_init)
+
+        x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
+        x = tf.reduce_mean(x, [1, 2])
+
+        return tf.squeeze(x)
+
+    @staticmethod
+    def bottleneck(x, reduce, first_block):
+        in_channels = x.get_shape().as_list()[-1]
+        print(x.get_shape().as_list())
+
+        if reduce:
+            if first_block:
+                bottleneck_channels = in_channels
+                stride = 1
+                pad = 'SAME'
+            else:
+                bottleneck_channels = in_channels // 2
+                stride = 2
+                pad = 'VALID'
+
+            out_channels = in_channels * 2
+        else:
+            bottleneck_channels = in_channels // 4
+            out_channels = in_channels
+            pad = 'SAME'
+            stride = 1
+
+        # 1x1 conv1
+        with tf.variable_scope('op1'):
+            k = [1, 1, in_channels, bottleneck_channels]
+            f_x = ResNet.block_op(x, k, 1, 'VALID')
+
+        # 3x3 conv2
+        with tf.variable_scope('op2'):
+            k = [3, 3, bottleneck_channels, bottleneck_channels]
+            f_x = ResNet.block_op(f_x, k, stride, pad)
+
+        # 1x1 conv3
+        with tf.variable_scope('op3'):
+            k = [1, 1, bottleneck_channels, out_channels]
+            f_x = ResNet.block_op(f_x, k, 1, 'VALID')
+
+        if reduce:
+            k = [1, 1, in_channels, out_channels]
+            w = tf.get_variable('proj', shape=k, initializer=ResNet.var_init)
+            x = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding='VALID')
+
+        return tf.add(x, f_x)
+
+
+    @staticmethod
+    def block(x, reduce):
+        in_channels = x.get_shape().as_list()[-1]
+
+        if reduce:
+            out_channels = in_channels * 2
+            pad = 'VALID'
+            stride = 2
+        else:
+            out_channels = in_channels
+            pad = 'SAME'
+            stride = 1
+
+        # 3x3 conv1
+        with tf.variable_scope('op1'):
+            k = [3, 3, in_channels, out_channels]
+            f_x = ResNet.block_op(x, k, stride, pad)
+
+        # 3x3 conv2
+        with tf.variable_scope('op2'):
+            k = [3, 3, out_channels, out_channels]
+            f_x = ResNet.block_op(f_x, k, 1, 'SAME')
+
+        # project x into the correct dimensions if there was a reduction
+        if reduce:
+            k = [1, 1, in_channels, out_channels]
+            w = tf.get_variable('proj', k, initializer=ResNet.var_init)
+            x = tf.nn.conv2d(x, w, stride=[1, stride, stride, 1], padding=pad)
+
+        return x + f_x
+
+    @staticmethod
+    def block_op(x, k, s, pad):
+        w = tf.get_variable('w', shape=k, initializer=ResNet.var_init)
+        b = tf.get_variable('b', shape=k[-1:], initializer=ResNet.var_init)
+
+        x = tf.nn.relu(x)
+        x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
+        x = tf.nn.bias_add(x, b)
+
+        return x
+
+    @staticmethod
+    def conv1(x):
+        #              Batch   Width   Height  Channels
+        x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'CONSTANT')
+
+        w = tf.get_variable('w', shape=[7, 7, 4, 64], initializer=ResNet.var_init)
+        s = [1, 2, 2, 1]
+        return tf.nn.relu(tf.nn.conv2d(x, w, s, 'VALID'))
+
+    @staticmethod
+    #https://arxiv.org/abs/1502.01852
+    def var_init(shape, dtype, partition_info=None):
+        std = None
+
+        # bias
+        if len(shape) ==1:
+            return tf.constant(0.01, shape=shape)
+        # fc Layer
+        if len(shape) == 2:
+            std = math.sqrt(1/shape[0])
+        # conv layer
+        elif len(shape) == 4:
+            k_sqr_d = shape[0] * shape[1] * shape[2]
+            std = math.sqrt(2 / k_sqr_d)
+
+        return tf.truncated_normal(shape, stddev=std, seed=ResNet.random_seed)
 
 class Resnet:
     @staticmethod
