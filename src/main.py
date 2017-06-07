@@ -116,6 +116,9 @@ def _train_network(net, eval_net):
             if params['print']:
                 tf.logging.info('Training...')
 
+            file_writer = tf.summary.FileWriter('./log', sess.graph)
+
+
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
                 sess.run(optimize, feed_dict={x:batch_xs, y:batch_ys})
