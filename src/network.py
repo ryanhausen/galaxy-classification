@@ -1,6 +1,6 @@
 import math
 import tensorflow as tf
-from tensorflow.contrib.layers.python.layers import batch_norm as batch_norm
+from tensorflow.contrib.layers import batch_norm
 
 class SimpleNet:
     seed = None
@@ -286,8 +286,6 @@ class ExperimentalNet:
             # k used to be 2
             conv1 = max_pool(conv1, k=4)
 
-            #print 'conv1: {}'.format(conv1.get_shape())
-
             # Second Covolution layer
             conv2 = conv2d(conv1, weights['wc2'], biases['bc2'])
             conv2 = max_pool(conv2, k=2)
@@ -343,18 +341,37 @@ class ResNet:
     X = tf.placeholder(tf.float32, [None, 84, 84, 4])
     Y = tf.placeholder(tf.float32, [None, 5])
 
+    #https://stackoverflow.com/a/38161314
+    @staticmethod
+    def print_total_params():
+        """
+            outputs the number of learnable parameters
+        """
+
+        total_parameters = 0
+        for variable in tf.trainable_variables():
+            # shape is an array of tf.Dimension
+            shape = variable.get_shape()
+            variable_parametes = 1
+            for dim in shape:
+                variable_parametes *= dim.value
+            total_parameters += variable_parametes
+        tf.logging.info(f'TOTAL NUMBER OF PARAMTERS:{total_parameters}')
+
     @staticmethod
     def build_graph(x, block_config, is_training):
         """
             x: a tf.placeholder
             block_config: list of ints that determines the number of residual
                           blocks in each block_segment
+            is_training: indicates training vs inference
         """
         # if the network is large use the bottleneck architecture
         is_large = sum(block_config) * 2 >= 50
+        reuse = None if is_training else True
 
         # this initial convolution reduces our image WxH by half
-        with tf.variable_scope('conv1'):
+        with tf.variable_scope('conv1', reuse=reuse):
             x = ResNet.conv1(x)
 
         # begin residual blocks
@@ -362,25 +379,33 @@ class ResNet:
             num_blocks = block_config[segment_idx]
 
             for block_idx in range(num_blocks):
-                with tf.variable_scope(f'seg{segment_idx}block{block_idx}'):
+                tf.logging.info(f'SEG{segment_idx}-BLOCK{block_idx}')
+                with tf.variable_scope(f'seg{segment_idx}block{block_idx}', reuse=reuse):
                     # if this is the first block the WxH are reduced and  the number
                     # of filters is increased
                     reduce = block_idx == 0
+                    first = segment_idx==0
                     if is_large:
-                        x = ResNet.bottleneck(x, reduce, segment_idx==0)
+                        x = ResNet.bottleneck(x, reduce, first, is_training)
                     else:
-                        x = ResNet.block(x, reduce)
+                        x = ResNet.block(x, reduce, first, is_training)
 
-        with tf.variable_scope('out'):
+        with tf.variable_scope('out', reuse=reuse):
             x = ResNet.global_average_pooling(x)
+
+        ResNet.print_total_params()
 
         if is_training:
             return x
         else:
             return tf.nn.softmax(x)
 
+    # https://arxiv.org/pdf/1312.4400.pdf
     @staticmethod
     def global_average_pooling(x):
+        tf.logging.info('GLOBAL-AVG-POOLING--------------')
+        tf.logging.info(f'X-IN:{x.get_shape().as_list()}')
+
         in_channels = x.get_shape().as_list()[-1]
 
         k = [1, 1, in_channels, 5]
@@ -389,14 +414,26 @@ class ResNet:
         x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
         x = tf.reduce_mean(x, [1, 2])
 
+        tf.logging.info(f'X-OUT:{x.get_shape().as_list()}')
+        tf.logging.info('--------------------------------')
         return tf.squeeze(x)
 
     @staticmethod
-    def bottleneck(x, reduce, first_block):
+    def bottleneck(x, reduce, first_block, is_training):
+        """
+            implements a bottleneck residual block which consists of a
+            1x1 convolution -> 3x3 convolution -> 1x1 convolution -> shortcut
+        """
+        reuse = None if is_training else True
         in_channels = x.get_shape().as_list()[-1]
-        print(x.get_shape().as_list())
+
+        shp = lambda t: t.get_shape().as_list()
+        tf.logging.info('BOTTLENECK:---------------------')
+        tf.logging.info(f'X-IN:{shp(x)}')
 
         if reduce:
+            tf.logging.info('Reducing Image Size')
+
             if first_block:
                 bottleneck_channels = in_channels
                 stride = 1
@@ -408,39 +445,66 @@ class ResNet:
 
             out_channels = in_channels * 2
         else:
-            bottleneck_channels = in_channels // 4
+            if first_block:
+                bottleneck_channels = in_channels // 2
+            else:
+                bottleneck_channels = in_channels // 4
+
             out_channels = in_channels
             pad = 'SAME'
             stride = 1
 
         # 1x1 conv1
-        with tf.variable_scope('op1'):
+        with tf.variable_scope('op1', reuse=reuse):
             k = [1, 1, in_channels, bottleneck_channels]
-            f_x = ResNet.block_op(x, k, 1, 'VALID')
+            f_x = ResNet.block_op(x, k, 1, 'VALID', is_training)
+
+        tf.logging.debug(f'H(X):{shp(f_x)}')
 
         # 3x3 conv2
-        with tf.variable_scope('op2'):
+        with tf.variable_scope('op2', reuse=reuse):
+            if reduce and first_block == False:
+                f_x = tf.pad(f_x, [[0, 0], [1, 1], [1, 1], [0, 0]])
+
             k = [3, 3, bottleneck_channels, bottleneck_channels]
-            f_x = ResNet.block_op(f_x, k, stride, pad)
+            f_x = ResNet.block_op(f_x, k, stride, pad, is_training)
+
+        tf.logging.debug(f'H(X):{shp(f_x)}')
+
 
         # 1x1 conv3
-        with tf.variable_scope('op3'):
+        with tf.variable_scope('op3', reuse=reuse):
             k = [1, 1, bottleneck_channels, out_channels]
-            f_x = ResNet.block_op(f_x, k, 1, 'VALID')
+            f_x = ResNet.block_op(f_x, k, 1, 'VALID', is_training)
+
+        tf.logging.debug(f'H(X):{shp(f_x)}')
 
         if reduce:
             k = [1, 1, in_channels, out_channels]
             w = tf.get_variable('proj', shape=k, initializer=ResNet.var_init)
             x = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding='VALID')
 
+
+        tf.logging.debug(f'X+H(X):{shp(f_x)} + {shp(x)}')
+        tf.logging.info(f'X-OUT:{shp(x)}')
+        tf.logging.info('--------------------------------')
         return tf.add(x, f_x)
 
-
     @staticmethod
-    def block(x, reduce):
+    def block(x, reduce, first_block, is_training):
+        """
+            implements a standard residual block which consists of a
+            3x3 convolution -> 3x3 convolution -> shortcut
+        """
         in_channels = x.get_shape().as_list()[-1]
+        reuse = None if is_training else True
 
-        if reduce:
+        shp = lambda t: t.get_shape().as_list()
+        tf.logging.info('STANDARD:-----------------------')
+        tf.logging.info(f'X-IN:{shp(x)}')
+
+        if reduce and first_block==False:
+            tf.logging.info('Reducing Image Size')
             out_channels = in_channels * 2
             pad = 'VALID'
             stride = 2
@@ -450,45 +514,68 @@ class ResNet:
             stride = 1
 
         # 3x3 conv1
-        with tf.variable_scope('op1'):
-            k = [3, 3, in_channels, out_channels]
-            f_x = ResNet.block_op(x, k, stride, pad)
+        with tf.variable_scope('op1', reuse=reuse):
+            if reduce and first_block == False:
+                f_x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]])
+                k = [3, 3, in_channels, out_channels]
+                f_x = ResNet.block_op(f_x, k, stride, pad, is_training)
+            else:
+                k = [3, 3, in_channels, out_channels]
+                f_x = ResNet.block_op(x, k, stride, pad, is_training)
+
+        tf.logging.debug(f'H(X):{shp(f_x)}')
 
         # 3x3 conv2
-        with tf.variable_scope('op2'):
+        with tf.variable_scope('op2', reuse=reuse):
             k = [3, 3, out_channels, out_channels]
-            f_x = ResNet.block_op(f_x, k, 1, 'SAME')
+            f_x = ResNet.block_op(f_x, k, 1, 'SAME', is_training)
+
+        tf.logging.debug(f'H(X):{shp(f_x)}')
 
         # project x into the correct dimensions if there was a reduction
-        if reduce:
+        if reduce and first_block==False:
             k = [1, 1, in_channels, out_channels]
             w = tf.get_variable('proj', k, initializer=ResNet.var_init)
-            x = tf.nn.conv2d(x, w, stride=[1, stride, stride, 1], padding=pad)
+            x = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding=pad)
 
-        return x + f_x
+        tf.logging.debug(f'X+H(X):{shp(f_x)} + {shp(x)}')
+        tf.logging.info(f'X-OUT:{shp(x)}')
+        tf.logging.info('--------------------------------')
+        return tf.add(x, f_x)
 
     @staticmethod
-    def block_op(x, k, s, pad):
-        w = tf.get_variable('w', shape=k, initializer=ResNet.var_init)
-        b = tf.get_variable('b', shape=k[-1:], initializer=ResNet.var_init)
-
+    def block_op(x, k, s, pad, is_training):
+        """
+            implements the set of operations that accompany each
+            convolution. batchnorm -> relu -> conv2d
+        """
+        x = batch_norm(x, is_training=is_training, decay=0.9, updates_collections=None)
         x = tf.nn.relu(x)
+
+        w = tf.get_variable('w', shape=k, initializer=ResNet.var_init)
         x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
-        x = tf.nn.bias_add(x, b)
 
         return x
 
     @staticmethod
     def conv1(x):
+        tf.logging.info('INITAL-CONV---------------------')
+        tf.logging.info(f'X-IN:{x.get_shape().as_list()}')
         #              Batch   Width   Height  Channels
         x = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], 'CONSTANT')
 
         w = tf.get_variable('w', shape=[7, 7, 4, 64], initializer=ResNet.var_init)
         s = [1, 2, 2, 1]
-        return tf.nn.relu(tf.nn.conv2d(x, w, s, 'VALID'))
 
-    @staticmethod
+        x = tf.nn.relu(tf.nn.conv2d(x, w, s, 'VALID'))
+
+        tf.logging.info(f'X-OUT:{x.get_shape().as_list()}')
+        tf.logging.info('--------------------------------')
+        return x
+
+
     #https://arxiv.org/abs/1502.01852
+    @staticmethod
     def var_init(shape, dtype, partition_info=None):
         std = None
 

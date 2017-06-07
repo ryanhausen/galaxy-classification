@@ -17,7 +17,7 @@ def _rmse(yh, ys):
     return tf.sqrt(tf.reduce_mean(tf.squared_difference(yh,ys)))
 
 def _cross_entropy(yh, ys):
-    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(yh, ys))
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=yh, labels=ys))
 
 def _class_accuracy_part1(yh,ys):
     return ys, tf.to_float(tf.nn.in_top_k(yh,ys,1))

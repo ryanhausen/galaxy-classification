@@ -18,8 +18,9 @@ y = None
 logger = None
 
 def main(config=None):
-    try:
 
+
+    try:
         global params
         global x
         global y
@@ -33,6 +34,8 @@ def main(config=None):
                 params = _type_convert(json.load(f))
 
         # add some code to validate dictionary
+        if params['print']:
+            tf.logging.set_verbosity(tf.logging.INFO)
 
         channels = len(params['bands'])
 
@@ -45,22 +48,22 @@ def main(config=None):
 #                                 params['global_avg_pool'],
 #                                 params['2016_update'])
 
-        net = ResNet.build_graph(x, params['block_config'], params['train'],)
-
+        net = ResNet.build_graph(x, params['block_config'], params['train'])
+        eval_net = ResNet.build_graph(x, params['block_config'], False)
 
         if params['train']:
-            _train_network(net)
+            _train_network(net, eval_net)
         else:
-            _use_network(net)
+            _use_network(eval_net)
 
     except KeyboardInterrupt:
         print('\nInterrupted')
-        run = 'y' == raw_input('Run eval statistics?(y/[n])')
+        run = 'y' == input('Run eval statistics?(y/[n])')
         if run:
             print('Not implemented yet')
 
 
-def _train_network(net):
+def _train_network(net, eval_net):
     global params
     global x
     global y
@@ -75,15 +78,17 @@ def _train_network(net):
     else:
         learning_rate = tf.Variable(params['start_learning_rate'])
 
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(net, y))
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=net, labels=y))
 
     # find a way tp paramertize the optimizer
-    optimizer = tf.train.MomentumOptimizer(learning_rate,
-                                           params['momentum'],
-                                           params['nesterov'])
+#    optimizer = tf.train.MomentumOptimizer(learning_rate,
+#                                           params['momentum'],
+#                                           params['nesterov'])
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+
     optimize = optimizer.minimize(cost, global_step=iters)
 
-    init = tf.initialize_all_variables()
+    init = tf.global_variables_initializer()
     saver = tf.train.Saver()
 
     learning_rate_reduce = params['learning_rate_reduce']
@@ -97,7 +102,7 @@ def _train_network(net):
 
         for epoch in range(1, params['epoch_limit']+1):
             if params['print']:
-                print(epoch)
+                tf.logging.info(f'Epoch:{epoch}')
 
             dh = DataHelper(batch_size=params['batch_size'],
                         train_size=params['train_size'],
@@ -106,37 +111,44 @@ def _train_network(net):
                         transform_func=eval(params['trans_func']) if params['trans_func'] else None)
 
             if learning_rate_reduce and epoch in learning_rate_reduce:
-                sess.run(learning_rate.assign(learning_rate.eval() / 10.0))
+                sess.run(learning_rate.assign(learning_rate.eval() / 10))
+
+            if params['print']:
+                tf.logging.info('Training...')
 
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
                 sess.run(optimize, feed_dict={x:batch_xs, y:batch_ys})
 
                 if iters.eval() % 20 == 0:
-                    evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['train_progress'])
+                    if params['print']:
+                        tf.logging.info('Evaluating...')
 
-            #testing
+                    evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['train_progress'])
+
+                    if params['print']:
+                        tf.logging.info('Training...')
+
+            if params['print']:
+                tf.logging.info('Testing...')
+
             srcs, batch_xs, batch_ys = dh.get_next_batch(include_ids=True)
-            results = evaluate.evaluate(sess, net, x, y, batch_xs, batch_ys, params['test_progress'])
+            results = evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['test_progress'])
 
             if params['save_progress'] and results[0] > top_result:
                 if params['print']:
-                    print('Saving checkpoint')
+                    tf.logging.info('Saving checkpoint')
                 saver.save(sess, params['model_dir'], global_step=iters)
                 top_result = results[0]
 
                 cPickle.dump(srcs, open('../report/model_out/srcs_{}.p'.format(epoch), 'wb'))
                 cPickle.dump(batch_ys, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
-                cPickle.dump(sess.run(tf.nn.softmax(net), feed_dict={x: batch_xs}), open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
+                cPickle.dump(sess.run(eval_net, feed_dict={x: batch_xs}), open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
 
+            if params['print']:
+                tf.logging.info('Epoch took {} seconds'.format(time.time() - start))
 
-
-
-
-
-    if params['print']:
-        print('Epoch took {} seconds'.format(time.time() - start))
-
+    # This needs to be printed so that the async trainer can see the result
     if params['rtrn_eval']:
         print(top_result)
 
