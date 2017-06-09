@@ -11,8 +11,6 @@ from copy import deepcopy
 
 from PIL import Image
 
-from copy import deepcopy
-
 class DataHelper(object):
     """
     Provides shuffling and batches for the neural net
@@ -251,6 +249,10 @@ class DataHelper(object):
 
             x = np.array(x)
             y = np.array(y)
+
+            self.training = True
+            self.testing = False
+            self._idx = 0
 
             if include_ids:
                 return (sources, x, y)

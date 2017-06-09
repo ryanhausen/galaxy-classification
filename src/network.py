@@ -412,11 +412,11 @@ class ResNet:
         w = tf.get_variable('w', shape=k, initializer=ResNet.var_init)
 
         x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
-        x = tf.reduce_mean(x, [1, 2])
+        x = tf.reduce_mean(x, [1, 2], name='global_average')
 
         tf.logging.info(f'X-OUT:{x.get_shape().as_list()}')
         tf.logging.info('--------------------------------')
-        return tf.squeeze(x)
+        return x
 
     @staticmethod
     def bottleneck(x, reduce, first_block, is_training):

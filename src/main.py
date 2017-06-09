@@ -68,7 +68,7 @@ def _train_network(net, eval_net):
     global x
     global y
 
-    iters = tf.Variable(0, trainable=False)
+    iters = tf.Variable(1, trainable=False)
     learning_rate = None
     if params['decay_steps']:
         learning_rate = tf.train.exponential_decay(params['start_learning_rate'],
@@ -85,30 +85,37 @@ def _train_network(net, eval_net):
 #                                           params['momentum'],
 #                                           params['nesterov'])
     optimizer = tf.train.AdamOptimizer(learning_rate)
+#    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
 
     optimize = optimizer.minimize(cost, global_step=iters)
+
+#    eval_ops = [evaluate.top_1(eval_net, y),
+#                evaluate.top_2(eval_net, y),
+#                evaluate.cross_entropy(eval_net, y),
+#                evaluate.class_accuracy_part1(eval_net, y)]
 
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
 
     learning_rate_reduce = params['learning_rate_reduce']
 
-    start = time.time()
     # this should have a more general implementation, we chose 0 because
     # accuracy will grow as it improves
     top_result = 0.0
+    dh = DataHelper(batch_size=params['batch_size'],
+                    train_size=params['train_size'],
+                    label_noise=params['label_noise'],
+                    bands=params['bands'],
+                    transform_func=eval(params['trans_func']) if params['trans_func'] else None)
+
     with tf.Session() as sess:
         sess.run(init)
 
         for epoch in range(1, params['epoch_limit']+1):
+            start = time.time()
+
             if params['print']:
                 tf.logging.info(f'Epoch:{epoch}')
-
-            dh = DataHelper(batch_size=params['batch_size'],
-                        train_size=params['train_size'],
-                        label_noise=params['label_noise'],
-                        bands=params['bands'],
-                        transform_func=eval(params['trans_func']) if params['trans_func'] else None)
 
             if learning_rate_reduce and epoch in learning_rate_reduce:
                 sess.run(learning_rate.assign(learning_rate.eval() / 10))
@@ -118,16 +125,21 @@ def _train_network(net, eval_net):
 
             file_writer = tf.summary.FileWriter('./log', sess.graph)
 
-
+            total = len(dh._train_imgs)
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
                 sess.run(optimize, feed_dict={x:batch_xs, y:batch_ys})
 
-                if iters.eval() % 20 == 0:
+                if params['print']:
+                    print(f'{round(100 * (dh._idx/total), 2)}% complete', end='\r')
+
+                if iters.eval() % 10 == 0:
                     if params['print']:
                         tf.logging.info('Evaluating...')
-
-                    evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['train_progress'])
+                        evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['train_progress'])
+#                        evals = sess.run(eval_ops, feed_dict={x:batch_xs, y:batch_ys})
+#                        evals[-1] = evaluate.class_accuracy_part2(evals[-1])
+#                        evaluate.save(evals, params[params['train_progress']])
 
                     if params['print']:
                         tf.logging.info('Training...')
@@ -136,13 +148,16 @@ def _train_network(net, eval_net):
                 tf.logging.info('Testing...')
 
             srcs, batch_xs, batch_ys = dh.get_next_batch(include_ids=True)
-            results = evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['test_progress'])
+            evals = evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['test_progress'])
+#            evals = sess.run(eval_ops, feed_dict={x:batch_xs, y:batch_ys})
+#            evals[-1] = evaluate.class_accuracy_part2(evals[-1])
+#            evaluate.save(evals, params[params['test_progress']])
 
-            if params['save_progress'] and results[0] > top_result:
+            if params['save_progress'] and evals[0] > top_result:
                 if params['print']:
                     tf.logging.info('Saving checkpoint')
                 saver.save(sess, params['model_dir'], global_step=iters)
-                top_result = results[0]
+                top_result = evals[0]
 
                 cPickle.dump(srcs, open('../report/model_out/srcs_{}.p'.format(epoch), 'wb'))
                 cPickle.dump(batch_ys, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
