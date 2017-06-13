@@ -147,7 +147,7 @@ def transform_segmap(imgs, segmap, sigma=2, truncate=4.0):
                 union_segmap[i,j] = segmap[coords[0], coords[1]]
 
     # TODO confirm that this logic will always be true
-    img_id = segmap[dim1 / 2, dim2 / 2]
+    img_id = segmap[dim1 // 2, dim2 // 2]
             
     # TODO integrate this into the loop above above to
     for i in range(dim1):

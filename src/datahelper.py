@@ -175,7 +175,7 @@ class DataHelper(object):
                 x_dir = os.path.join(self._imgs_dir,s)
 
                 try:
-                    x_tmp =  fits.getdata(x_dir)
+                    x_tmp = self._get_fits(x_dir)
                 except Exception as e:
                     print(f'ERROR with {x_dir}')
                     raise e
@@ -225,7 +225,7 @@ class DataHelper(object):
                 x_dir = os.path.join(self._imgs_dir,s)
 
                 try:
-                    raw =  fits.getdata(x_dir)
+                    raw =  self._get_fits(x_dir)
                 except Exception as e:
                     print(f'ERROR with {x_dir}')
                     raise e
@@ -311,6 +311,18 @@ class DataHelper(object):
 
         return (x,y)
 
+
+
+
+    def _get_fits(self, img_path, normalize=False):
+        tmp = fits.getdata(img_path)
+
+        if normalize:
+            for i in range(tmp.shape[-1]):
+                x = tmp[:,:,i]
+                tmp[:,:,i] = (x-np.min(x))/(np.max(x)-np.min(x))
+
+        return tmp
 
     # Helper
     @staticmethod

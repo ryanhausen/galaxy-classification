@@ -164,7 +164,7 @@ def _train_network(net, eval_net):
                 cPickle.dump(sess.run(eval_net, feed_dict={x: batch_xs}), open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
 
             if params['print']:
-                tf.logging.info('Epoch took {} seconds'.format(time.time() - start))
+                tf.logging.info(f'Epoch {epoch} took {(time.time() - start)} seconds')
 
     # This needs to be printed so that the async trainer can see the result
     if params['rtrn_eval']:

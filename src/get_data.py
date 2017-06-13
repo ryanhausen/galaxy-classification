@@ -30,7 +30,7 @@ data_ftp_dir = 'pub/jeyhan/candels/gds2/'
 labels_ftp_url = 'cdsarc.u-strasbg.fr'
 labels_ftp_dir = 'pub/cats/J/ApJS/221/11'
 
-RUN_PARALLEL = False
+RUN_PARALLEL = True
 
 # Helpers ---------------------------------------------------------------------
 def _get_ftp(url, location, path=None):
@@ -41,23 +41,23 @@ def _get_ftp(url, location, path=None):
         ftp.cwd(path)
 
     for f in ftp.nlst():
-        print 'Fetching {}...'.format(f)
+        print('Fetching {}...'.format(f))
         f_dir = os.path.join(location,f)
         try:
             ftp.retrbinary('RETR {}'.format(f), open(f_dir, 'wb').write)
         except Exception:
-            print 'Failed to get {}'.format(f)
+            print('Failed to get {}'.format(f))
     
     ftp.quit()
 
 def _unpack_dir(data_dir, remove=True):
     for f in os.listdir(data_dir):
         f_dir = os.path.join(data_dir, f)
-        print 'Unpacking {}...'.format(f)
+        print('Unpacking {}...'.format(f))
         tarfile.open(f_dir).extractall(data_dir)
         
         if remove:
-            print 'Removing {}'.format(f)
+            print('Removing {}'.format(f))
             os.remove(f_dir)
     
     
@@ -128,7 +128,7 @@ def _fits_in_square(seg, src_id):
             mx_val = dim-1            
             
             if diff % 2 == 0:
-                pad = (84-diff) / 2
+                pad = (84-diff) // 2
     
                 mx_too_big = mx + pad > mx_val
                 mn_too_small = mn - pad < 0
@@ -152,7 +152,7 @@ def _fits_in_square(seg, src_id):
                     mx += pad
                 
             else:
-                pad_1, pad_2 = (((84-diff) / 2), (((84-diff) / 2) + 1))
+                pad_1, pad_2 = (((84-diff) // 2), (((84-diff) // 2) + 1))
                 
                 mn_too_small = mn - pad_1 < 0
                 mx_too_big = mx + pad_2 > mx_val
@@ -185,18 +185,18 @@ def _pad_dim(img, axs):
     diff = 84 - dim
     
     if diff % 2 == 0:
-        dims[axs] = diff / 2
+        dims[axs] = diff // 2
         
         pad = np.ones(tuple(dims))
         img = np.append(pad, img, axis=axs)
         img = np.append(img, pad, axis=axs)
     else:
-       dims[axs] = diff / 2
+       dims[axs] = diff // 2
        
        pad = np.ones(tuple(dims))
        img = np.append(pad, img, axis=axs)
        
-       dims[axs] = diff / 2 + 1
+       dims[axs] = diff // 2 + 1
        
        pad = np.ones(tuple(dims))
        img = np.append(img, pad, axis=axs)
@@ -206,7 +206,7 @@ def _pad_dim(img, axs):
 def process_image(args):
     kvp, tinytims = args
     s, s_dir = kvp
-    print s
+    print(s)
     
     img_id = int(s[(s.index('_')+1):])    
     
@@ -325,7 +325,7 @@ def process_image(args):
     # PREPROCESSING -----------------------------------------------------------
 
     # combine into one image and save
-    cmb_img = np.dstack(tuple(imgs.values()))
+    cmb_img = np.dstack(tuple([imgs[b] for b in bands]))
 
     cmb_dir = os.path.join(to_dir, '{}.fits'.format(s))
     fits.PrimaryHDU(cmb_img).writeto(cmb_dir)
@@ -361,10 +361,10 @@ if 'imgs' not in os.listdir(data_dir):
     os.mkdir(imgs_dir)    
 
 if RUN_PARALLEL:
-    print 'Asyncing!'
+    print('Asyncing!')
     Pool().map(process_image, zip(sources.items(), repeat(tt_imgs)))
 else:
-    print 'Sequentialing!'
+    print('Sequentialing!')
     for args in zip(sources.items(), repeat(tt_imgs)):
         process_image(args)
 
@@ -389,15 +389,15 @@ for f in os.listdir(lbl_dir):
     f_dir = os.path.join(lbl_dir, f)
     
     if f not in files_to_keep:
-        print 'Removing {}'.format(f)
+        print('Removing {}'.format(f))
         os.remove(f_dir)
     elif f in lbl_tables:
-        print 'Extracting {}...'.format(f)
+        print('Extracting {}...'.format(f))
         with gzip.open(f_dir, 'r') as gz, open(f_dir[:-3], 'w') as f:
             f.write(gz.read())
 
         # clean up
-        print 'Removing {}'.format(f)
+        print('Removing {}'.format(f))
         os.remove(f_dir)
         
 # make our labels table
@@ -409,4 +409,4 @@ t_hlpr.extract_from_table2(tbl_2_path, new_tbl_2)
 
 #END
 # TODO format into minutes and hours
-print 'Process finished in {} seconds'.format(time.time() - start)
+print('Process finished in {} seconds'.format(time.time() - start))

@@ -301,7 +301,6 @@ class ExperimentalNet:
 
             return tf.reshape(conv4, [batch_size, -1])
 
-
         fc_weights = {
             'wf1': tf.Variable(tf.truncated_normal([512, 2048], stddev=0.001)),
             # fully coneected 2048 inputs, 2048 outputs
@@ -403,6 +402,9 @@ class ResNet:
     # https://arxiv.org/pdf/1312.4400.pdf
     @staticmethod
     def global_average_pooling(x):
+        """
+            implements global average pooling
+        """
         tf.logging.info('GLOBAL-AVG-POOLING--------------')
         tf.logging.info(f'X-IN:{x.get_shape().as_list()}')
 
@@ -559,6 +561,10 @@ class ResNet:
 
     @staticmethod
     def conv1(x):
+        """
+           Simple convolutional layer
+           pad(3x3) -> conv2d -> relu
+        """
         tf.logging.info('INITAL-CONV---------------------')
         tf.logging.info(f'X-IN:{x.get_shape().as_list()}')
         #              Batch   Width   Height  Channels

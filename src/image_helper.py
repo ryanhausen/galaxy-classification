@@ -28,8 +28,8 @@ def transform_image(img, img_id, src_name, band, segmap, tinytim):
     if len_noise > 0:
         cpy_noise = np.zeros(img.shape)    
         
-        for i in xrange(img.shape[0]):
-            for j in xrange(img.shape[1]): 
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]): 
                 cpy_noise[i,j] = noise[randint(len_noise)]
     
     
@@ -63,8 +63,8 @@ def transform_image(img, img_id, src_name, band, segmap, tinytim):
         # we want to replace the pixels of sources that are not the central source
         repl_mask = np.logical_and(segmap > 0, segmap != img_id)
     
-        for i in xrange(img.shape[0]):
-            for j in xrange(img.shape[1]): 
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]): 
                 if repl_mask[i,j]:
                     img[i,j] = tt_img[i,j]
                         
