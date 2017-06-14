@@ -123,7 +123,7 @@ def _train_network(net, eval_net):
             if params['print']:
                 tf.logging.info('Training...')
 
-            file_writer = tf.summary.FileWriter('./log', sess.graph)
+            file_writer = tf.summary.FileWriter('./tf-log', sess.graph)
 
             total = len(dh._train_imgs)
             while dh.training:

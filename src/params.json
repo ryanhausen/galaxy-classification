@@ -12,7 +12,7 @@
 	"nesterov": "true",
 	
 	"bands": ["v", "z", "h", "j"],
-	"block_config": [3,4,23,3], 
+	"block_config": [3,4,16,8], 
 	"2016_update": "true",
 	"global_avg_pool": "true",
 	
