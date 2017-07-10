@@ -38,7 +38,13 @@ if '_drafts' not in os.listdir('.'):
 
 with open(f'./_drafts/{date}-{hidden_title}.md', 'w') as f:
     mathjax = '{% include mathjax.html  %}\n'
-    post_meta = '---\nlayout: default\ntitle: {}\ndate: {}\ncategories:{}\n---\n\n'.format(display_title,date,tags)
+    post_meta = '---\nlayout: default\n'
+    post_meta += f'title: {display_title}\n'
+    post_meta += f'date: {date}\n' 
+    post_meta += f'categories:{tags}\n'
+    post_meta += 'bands:\n'
+    post_meta += '  - "h"\n  - "j"\n  - "v"\n  - "z"\n'
+    post_meta += '---\n\n'
     f.write(post_meta + mathjax)
     
 print('Finished.')
