@@ -118,8 +118,39 @@ Hisograms from original data
 
 ### Histogram $I_e$
 
+Hisograms from original data
 
+{% assign bands = "h,j,v,z" | split: "," %}
+{% for b in bands %}
+	{% assign img_name = "spheroid-" | append: b | append: "-ie-hist.png" %}
+
+![sph-hist]({{ site.url }}/assets/imgs/2017-07-06/{{ img_name }})
+{% endfor %}
+
+{% assign bands = "h,j,v,z" | split: "," %}
+{% for b in bands %}
+	{% assign img_name = "disk-" | append: b | append: "-ie-hist.png" %}
+	
+![dk-hist]({{ site.url }}/assets/imgs/2017-07-06/{{ img_name }})
+{% endfor %}
 
 
 ### 3D Gaussian of $R_e$, $I_e$, and Axis Ratio
+
+{% assign bands = "h,j,v,z" | split: "," %}
+{% for b in bands %}
+	{% assign img_name = "spheroid-" | append: b | append: "-ierear-scatter.png" %}
+
+![sph-hist]({{ site.url }}/assets/imgs/2017-07-06/{{ img_name }})
+{% endfor %}
+
+{% assign bands = "h,j,v,z" | split: "," %}
+{% for b in bands %}
+	{% assign img_name = "disk-" | append: b | append: "-ierear-scatter.png" %}
+	
+![dk-hist]({{ site.url }}/assets/imgs/2017-07-06/{{ img_name }})
+{% endfor %}
+
+
+
 
