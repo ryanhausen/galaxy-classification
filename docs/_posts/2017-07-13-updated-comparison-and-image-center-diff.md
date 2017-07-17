@@ -14,6 +14,22 @@ bands:
 
 ### Visual Comparison of Max Pixel and Image Moment
 
+**Centroid Text Above Pixel -- Max Text Below Pixel**
+
+{% for b in page.bands %}
+	{% assign img_name = "spheroid-" | append: b | append: "-center-diff.png" %}
+
+![sph-center]({{ site.url }}/assets/imgs/2017-07-13/{{ img_name }})
+
+{% endfor %}
+
+{% for b in page.bands %}
+	{% assign img_name = "disk-" | append: b | append: "-center-diff.png" %}
+
+![disk-center]({{ site.url }}/assets/imgs/2017-07-13/{{ img_name }})
+
+{% endfor %}
+
 ### Top V→H Ratio Outliers 
 
 Here are the top 5 V→H ratio outliers. The ratio is taken at r=0, using $I_e$ normalized values.
