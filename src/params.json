@@ -7,7 +7,7 @@
 	"decay_steps": "",
 	"decay_base": 0.96,
 	"learning_rate_reduce": [110, 140], 
-	"start_learning_rate": 0.001, 
+	"start_learning_rate": 0.1, 
 	"momentum": 0.9,
 	"nesterov": "true",
 	
