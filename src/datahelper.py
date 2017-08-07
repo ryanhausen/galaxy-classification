@@ -67,6 +67,8 @@ class DataHelper(object):
             # we want to use the same test images every time so they are set
             # aside before the shuffle
             self._train_imgs = self._imgs_list[:num_train_examples]
+            self._build_iters(self._train_imgs, self.lbls)
+
             self._test_imgs = self._imgs_list[num_train_examples:]
 
             if len(self._train_imgs) % batch_size != 0:
@@ -79,6 +81,9 @@ class DataHelper(object):
         # one example at a time
         else:
             self.testing = True
+
+    def _build_iters(self, xs, ys):
+        self.sph_iter =
 
     def _augment_image(self, img, img_id):
 
@@ -161,6 +166,10 @@ class DataHelper(object):
         return np.dstack(tmp)
 
         return img
+
+
+    def img_server(self, fair_spread=True):
+
 
     def get_next_batch(self, include_ids=False):
         if self.training:
