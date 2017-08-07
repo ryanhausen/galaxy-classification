@@ -47,7 +47,8 @@ class SimpleRNN:
            w = tf.get_variable('w', shape=[SimpleRNN.num_hidden, SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
            b = tf.get_variable('b', shape=[SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
 
-       return tf.nn.bias_add(tf.matmul(outputs[-1], w), b)
+       return tf.nn.bias_add(tf.matmul(tf.reduce_max(outputs, axis=0), w), b)
+
 
 
 
@@ -58,6 +59,24 @@ class SimpleNet:
     seed = None
     x = tf.placeholder(tf.float32, [None,84,84,4])
     y = tf.placeholder(tf.float32, [None, 5])
+
+
+    @staticmethod
+    def print_total_params():
+        """
+            outputs the number of learnable parameters
+        """
+
+        total_parameters = 0
+        for variable in tf.trainable_variables():
+            # shape is an array of tf.Dimension
+            shape = variable.get_shape()
+            variable_parametes = 1
+            for dim in shape:
+                variable_parametes *= dim.value
+            total_parameters += variable_parametes
+        tf.logging.info(f'TOTAL NUMBER OF PARAMETERS:{total_parameters}')
+
 
     @staticmethod
     #https://arxiv.org/abs/1502.01852
@@ -133,40 +152,65 @@ class SimpleNet:
 
     @staticmethod
     def build_cnn(x, reuse):
+
+        tf.logging.info(f'IN-SHAPE:{x.shape.as_list()}')
+
         with tf.variable_scope('conv1', reuse=reuse):
             x = SimpleNet.conv2d(x, SimpleNet.c1w_shape())
 
+        tf.logging.info(f'CONV1:{x.shape.as_list()}')
+
         x = SimpleNet.max_pool(x)
+
+        tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
         with tf.variable_scope('conv2', reuse=reuse):
             x = SimpleNet.conv2d(x, SimpleNet.c2w_shape())
 
+        tf.logging.info(f'CONV2:{x.shape.as_list()}')
+
         x = SimpleNet.max_pool(x)
+
+        tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
         with tf.variable_scope('conv3', reuse=reuse):
             x = SimpleNet.conv2d(x, SimpleNet.c3w_shape())
 
+        tf.logging.info(f'CONV3:{x.shape.as_list()}')
+
         with tf.variable_scope('conv4', reuse=reuse):
             x = SimpleNet.conv2d(x, SimpleNet.c4w_shape())
 
+        tf.logging.info(f'CONV4:{x.shape.as_list()}')
+
         x = SimpleNet.max_pool(x)
+
+        tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
         x_flat = np.prod(x.get_shape().as_list()[1:])
 
         x = tf.reshape(x, [-1, x_flat])
 
+        tf.logging.info(f'RESHAPE:{x.shape.as_list()}')
+
         with tf.variable_scope('fc1', reuse=reuse):
             x = SimpleNet.fc(x, SimpleNet.f1w_shape()[1], tf.nn.relu)
+
+        tf.logging.info(f'FC1:{x.shape.as_list()}')
 
         x = tf.nn.dropout(x, 0.5)
 
         with tf.variable_scope('fc2', reuse=reuse):
             x = SimpleNet.fc(x, SimpleNet.f2w_shape()[1])
 
+        tf.logging.info(f'FC2:{x.shape.as_list()}')
+
         x = tf.nn.dropout(x, 0.5)
 
         with tf.variable_scope('fc3', reuse=reuse):
             x = SimpleNet.fc(x, SimpleNet.f3w_shape()[1])
+
+        tf.logging.info(f'FC3:{x.shape.as_list()}')
 
         return x
 
