@@ -83,7 +83,12 @@ class DataHelper(object):
             self.testing = True
 
     def _build_iters(self, xs, ys):
-        self.sph_iter =
+        self.sph_list, self.sph_iter  = None, None
+        self.dk_list, self.dk_iter  = None, None
+        self.ps_list, self.ps_iter  = None, None
+        self.unk_list, self.unk_iter  = None, None
+
+
 
     def _augment_image(self, img, img_id):
 
