@@ -53,13 +53,13 @@ class DataHelper(object):
         if batch_size:
             num_train_examples = int(len(self._imgs_list) * train_size)
 
-            batch_train = num_train_examples % batch_size
-            if batch_train != 0:
-
-                if batch_train > batch_size / 2:
-                    num_train_examples += batch_train
-                else:
-                    num_train_examples -= batch_train
+#            batch_train = num_train_examples % batch_size
+#            if batch_train != 0:
+#
+#                if batch_train > batch_size / 2:
+#                    num_train_examples += batch_train
+#                else:
+#                    num_train_examples -= batch_train
 
                 #msg = 'Batch didnt divide evenly into training examples ' + \
                 #      ' adjusted training size from {} to {}'
@@ -68,13 +68,13 @@ class DataHelper(object):
             # we want to use the same test images every time so they are set
             # aside before the shuffle
             self._train_imgs = self._imgs_list[:num_train_examples]
-            self._build_iters(self._train_imgs, self.lbls)
+            self._build_iters(self._train_imgs, self._lbls)
 
             self._test_imgs = self._imgs_list[num_train_examples:]
 
-            if len(self._train_imgs) % batch_size != 0:
-                err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
-                raise Exception(err.format(batch_size, len(self._train_imgs)))
+#            if len(self._train_imgs) % batch_size != 0:
+#                err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
+#                raise Exception(err.format(batch_size, len(self._train_imgs)))
 
             if shuffle_train:
                 shuffle(self._train_imgs)
@@ -84,11 +84,15 @@ class DataHelper(object):
             self.testing = True
 
     def _build_iters(self, img_file_names, lbls_df):
-        self.sph_list, self.sph_iter  = None, None
-        self.dk_list, self.dk_iter  = None, None
-        self.irr_list, self.irr_iter  = None, None
-        self.ps_list, self.ps_iter  = None, None
-        self.unk_list, self.unk_iter  = None, None
+
+        self.train_count = 0
+        self.train_iter = cycle(img_file_names)
+
+        self.sph_list, self.sph_iter  = [], None
+        self.dk_list, self.dk_iter  = [], None
+        self.irr_list, self.irr_iter  = [], None
+        self.ps_list, self.ps_iter  = [], None
+        self.unk_list, self.unk_iter  = [], None
 
         for s in img_file_names:
             s_id = 'GDS_' + s[:-5]
@@ -106,7 +110,9 @@ class DataHelper(object):
 
         for coll in [self.sph_list,self.dk_list,self.irr_list,self.ps_list,self.unk_list]:
             shuffle(coll)
-            
+
+        self.sph_count,self.dk_count,self.irr_count,self.ps_count,self.unk_count = 0,0,0,0,0
+
         self.sph_iter = cycle(self.sph_list)
         self.dk_iter = cycle(self.dk_list)
         self.irr_iter = cycle(self.irr_list)
@@ -118,7 +124,6 @@ class DataHelper(object):
 
         if self._transform_func:
             img = self._transform_func(img)
-
 
         rotation = randint(0,359)
         x_shift = randint(-4,4)
@@ -197,16 +202,53 @@ class DataHelper(object):
         return img
 
 
-    def img_server(self, fair_spread=True):
+    def img_name_server(self, fair_spread=True):
 
+        if fair_spread:
+            num_classes = 5
 
-    def get_next_batch(self, include_ids=False):
-        if self.training:
-            end_idx = self._idx + self._batch_size
-            sources = self._train_imgs[self._idx:end_idx]
+            img_names = []
 
-            x = []
-            y = []
+            class_iters = [self.sph_iter,self.dk_iter,self.irr_iter,self.ps_iter,self.unk_iter]
+
+            for i in range(self._batch_size//num_classes):
+                for coll in class_iters:
+                    img_names.append(next(coll))
+
+            # TODO this will favor earlier classes, just choose %5==0 batch sizes
+            for i in range(self._batch_size % num_classes):
+                img_names.append(next(class_iters[i]))
+
+            shuffle(img_names)
+
+        else:
+            img_names = [next(self.train_iter) for i in range(self._batch_size)]
+            self.train_count += self._batch_size
+            if self.train_count > len(self._train_imgs):
+                self.train_count = 0
+                shuffle(self._train_imgs)
+                self.train_iter = cycle(self._train_imgs)
+
+        return img_names
+
+    def get_next_batch(self, include_ids=False, iter_based=False, force_test=False):
+        if self.training and force_test==False:
+            x, y = [], []
+
+            if iter_based:
+                sources = self.img_name_server()
+
+            else:
+                end_idx = self._idx + self._batch_size
+                sources = self._train_imgs[self._idx:end_idx]
+
+                if end_idx >= len(self._train_imgs):
+                    self.training = False
+                    self.testing = True
+                    self._idx = 0
+                else:
+                    self._idx = end_idx
+
 
             for s in sources:
                 s_id = s[:-5]
@@ -240,13 +282,6 @@ class DataHelper(object):
 
             x = np.array(x)
             y = np.array(y)
-
-            if end_idx >= len(self._train_imgs):
-                self.training = False
-                self.testing = True
-                self._idx = 0
-            else:
-                self._idx = end_idx
 
             if include_ids:
                 return (sources, x, y)

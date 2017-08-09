@@ -2,11 +2,11 @@ import numpy as np
 import math
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm
-from tensorflow.contrib.rnn import BasicRNNCell, static_rnn
+from tensorflow.contrib.rnn import BasicRNNCell, static_rnn, BasicLSTMCell
 
 class SimpleRNN:
     num_channels = 4
-    num_hidden = 32
+    num_hidden = 512
     out_classes = 5
     x = tf.placeholder(tf.float32, [None,num_channels,out_classes])
     y = tf.placeholder(tf.float32, [None,out_classes])
@@ -37,7 +37,7 @@ class SimpleRNN:
 
        # rnn
        with tf.variable_scope('rnn'):
-           rnn = BasicRNNCell(SimpleRNN.num_hidden)
+           rnn = BasicLSTMCell(SimpleRNN.num_hidden)
 
        # process rnn
        outputs, states = static_rnn(rnn, x, dtype=tf.float32)
@@ -47,7 +47,7 @@ class SimpleRNN:
            w = tf.get_variable('w', shape=[SimpleRNN.num_hidden, SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
            b = tf.get_variable('b', shape=[SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
 
-       return tf.nn.bias_add(tf.matmul(tf.reduce_max(outputs, axis=0), w), b)
+       return tf.nn.bias_add(tf.matmul(outputs[-1], w), b)
 
 
 
@@ -136,7 +136,7 @@ class SimpleNet:
 
     @staticmethod
     def c4w_shape():
-        return [3, 3, 128, 128]
+        return [3, 3, 128, 10]
 
     @staticmethod
     def f1w_shape():
@@ -151,7 +151,7 @@ class SimpleNet:
         return [2048, 5]
 
     @staticmethod
-    def build_cnn(x, reuse):
+    def build_cnn(x, reuse, global_avg_pooling=False):
 
         tf.logging.info(f'IN-SHAPE:{x.shape.as_list()}')
 
@@ -187,30 +187,48 @@ class SimpleNet:
 
         tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
-        x_flat = np.prod(x.get_shape().as_list()[1:])
+        if global_avg_pooling:
+            dim_in = x.shape.as_list()[-1]
+            with tf.variable_scope('gbl_avg_pool', reuse=reuse):
+                w = tf.get_variable('w', shape=[1,1,dim_in,SimpleNet.y.shape.as_list()[-1]],initializer=SimpleNet.var_init)
+            x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
 
-        x = tf.reshape(x, [-1, x_flat])
+            tf.logging.info(f'CONV5:{x.shape.as_list()}')
 
-        tf.logging.info(f'RESHAPE:{x.shape.as_list()}')
+            shp = x.shape.as_list()
+            ks = [1,shp[1],shp[1],1]
 
-        with tf.variable_scope('fc1', reuse=reuse):
-            x = SimpleNet.fc(x, SimpleNet.f1w_shape()[1], tf.nn.relu)
+            x = tf.nn.avg_pool(x, ksize=ks, strides=ks, padding='VALID')
 
-        tf.logging.info(f'FC1:{x.shape.as_list()}')
+            x = tf.reshape(x, [-1, 5])
 
-        x = tf.nn.dropout(x, 0.5)
+            tf.logging.info(f'GBL_AVG_POOL:{x.shape.as_list()}')
 
-        with tf.variable_scope('fc2', reuse=reuse):
-            x = SimpleNet.fc(x, SimpleNet.f2w_shape()[1])
+        else:
+            x_flat = np.prod(x.get_shape().as_list()[1:])
 
-        tf.logging.info(f'FC2:{x.shape.as_list()}')
+            x = tf.reshape(x, [-1, x_flat])
 
-        x = tf.nn.dropout(x, 0.5)
+            tf.logging.info(f'RESHAPE:{x.shape.as_list()}')
 
-        with tf.variable_scope('fc3', reuse=reuse):
-            x = SimpleNet.fc(x, SimpleNet.f3w_shape()[1])
+            with tf.variable_scope('fc1', reuse=reuse):
+                x = SimpleNet.fc(x, SimpleNet.f1w_shape()[1], tf.nn.relu)
 
-        tf.logging.info(f'FC3:{x.shape.as_list()}')
+            tf.logging.info(f'FC1:{x.shape.as_list()}')
+
+            x = tf.nn.dropout(x, 0.5)
+
+            with tf.variable_scope('fc2', reuse=reuse):
+                x = SimpleNet.fc(x, SimpleNet.f2w_shape()[1])
+
+            tf.logging.info(f'FC2:{x.shape.as_list()}')
+
+            x = tf.nn.dropout(x, 0.5)
+
+            with tf.variable_scope('fc3', reuse=reuse):
+                x = SimpleNet.fc(x, SimpleNet.f3w_shape()[1])
+
+            tf.logging.info(f'FC3:{x.shape.as_list()}')
 
         return x
 
@@ -224,7 +242,7 @@ class SimpleNet:
 
         ys = []
         for channel in range(SimpleNet.num_channels):
-            ys.append(SimpleNet.build_cnn(x[channel], reuse=channel>0))
+            ys.append(SimpleNet.build_cnn(x[channel], reuse=channel>0, global_avg_pooling=True))
 
         return tf.stack(ys, axis=1)
 
@@ -926,6 +944,7 @@ class Resnet:
         x = tf.nn.conv2d(x, w, strides=[1, s, s, 1], padding=pad)
 
         return x
+
 
     @staticmethod
     def _batch_norm_layer(x,is_training=True):
