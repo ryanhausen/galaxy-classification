@@ -4,6 +4,7 @@ import os
 import math
 import pandas as pd
 import numpy as np
+from itertools import cycle
 from random import shuffle, randint
 from astropy.io import fits
 from copy import deepcopy
@@ -82,12 +83,35 @@ class DataHelper(object):
         else:
             self.testing = True
 
-    def _build_iters(self, xs, ys):
+    def _build_iters(self, img_file_names, lbls_df):
         self.sph_list, self.sph_iter  = None, None
         self.dk_list, self.dk_iter  = None, None
+        self.irr_list, self.irr_iter  = None, None
         self.ps_list, self.ps_iter  = None, None
         self.unk_list, self.unk_iter  = None, None
 
+        for s in img_file_names:
+            s_id = 'GDS_' + s[:-5]
+            lbl = np.argmax(self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols].values)
+            if lbl==0:
+                self.sph_list.append(s)
+            elif lbl==1:
+                self.dk_list.append(s)
+            elif lbl==2:
+                self.irr_list.append(s)
+            elif lbl==3:
+                self.ps_list.append(s)
+            elif lbl==4:
+                self.unk_list.append(s)
+
+        for coll in [self.sph_list,self.dk_list,self.irr_list,self.ps_list,self.unk_list]:
+            shuffle(coll)
+            
+        self.sph_iter = cycle(self.sph_list)
+        self.dk_iter = cycle(self.dk_list)
+        self.irr_iter = cycle(self.irr_list)
+        self.ps_iter = cycle(self.ps_list)
+        self.unk_iter = cycle(self.unk_list)
 
 
     def _augment_image(self, img, img_id):
