@@ -231,7 +231,11 @@ class DataHelper(object):
 
         return img_names
 
-    def get_next_batch(self, include_ids=False, iter_based=False, force_test=False):
+    def get_next_batch(self,
+                       include_ids=False,
+                       iter_based=False,
+                       force_test=False,
+                       split_channels=False):
         if self.training and force_test==False:
             x, y = [], []
 
@@ -263,13 +267,22 @@ class DataHelper(object):
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)
 
-                x.append(x_tmp.copy())
+                if split_channels:
+                    x.extend([x_tmp[:,:,i].reshape([84,84,1]) for i in range(x_tmp.shape[2])])
+                else:
+                    x.append(x_tmp.copy())
+
                 del x_tmp
 
                 # for the labels we need to prefix GDS_
                 s_id = 'GDS_' + s[:-5]
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
                 lbl = lbl.values.reshape(self._num_classes)
+
+
+#                _tmp = np.zeros_like(lbl)
+#                _tmp[lbl.argmax()] = 1.0
+#                lbl = _tmp
 
                 if self._label_noise:
                     lbl_noise = np.random.normal(scale=self._label_noise,
@@ -311,9 +324,12 @@ class DataHelper(object):
 
                     raw = np.dstack(tmp)
 
-                # to avoid os errors copy to a new mem location and
-                # remove the file handle
-                x.append(deepcopy(raw))
+
+                if split_channels:
+                    x.extend([raw[:,:,i].reshape([84,84,1]) for i in range(raw.shape[2])])
+                else:
+                    x.append(raw.copy())
+
                 del raw
 
                 s_id = 'GDS_' + s[:-5]
