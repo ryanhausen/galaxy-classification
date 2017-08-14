@@ -322,15 +322,17 @@ class DataHelper(object):
                         if bands[i] in self._bands:
                             tmp.append(raw[:,:,i])
 
-                    raw = np.dstack(tmp)
-
-
-                if split_channels:
-                    x.extend([raw[:,:,i].reshape([84,84,1]) for i in range(raw.shape[2])])
+                    x_tmp = np.dstack(tmp)
                 else:
-                    x.append(raw.copy())
+                    x_tmp = deepcopy(raw)
 
                 del raw
+
+                if split_channels:
+                    x.extend([x_tmp[:,:,i].reshape([84,84,1]) for i in range(x_tmp.shape[2])])
+                else:
+                    x.append(x_tmp.copy())
+
 
                 s_id = 'GDS_' + s[:-5]
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]

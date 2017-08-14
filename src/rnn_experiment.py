@@ -17,9 +17,9 @@ from datahelper import DataHelper
 tf.logging.set_verbosity('INFO')
 
 iters = tf.Variable(1, trainable=False)
-learning_rate = 1e-6
-iter_limit = 750
+learning_rate = 1e-3
 batch_size = 50
+iter_limit = 15000
 seed = None
 
 
@@ -32,8 +32,12 @@ y = SimpleRNN.y
 
 infer = tf.nn.softmax(rnn)
 
-loss = 100*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=rnn, labels=y))
-optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+with tf.name_scope('metrics'):
+    evaluate.evaluate_tensorboard(infer,y)
+
+loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=rnn, labels=y))
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+tf.summary.scalar('learning_rate', optimizer._lr_t)
 
 grads = optimizer.compute_gradients(loss)
 #non_nan = [(tf.where(tf.is_nan(grad), tf.zeros_like(grad), grad), var) for grad, var in grads]
@@ -59,29 +63,31 @@ saver = tf.train.Saver()
 
 with tf.Session() as sess:
     sess.run(init)
-    summaryWriter = tf.summary.FileWriter('./tf-log', graph=sess.graph)
+    trainWriter = tf.summary.FileWriter('./tf-log/train', graph=sess.graph)
+    testWriter = tf.summary.FileWriter('./tf-log/test', graph=sess.graph)
 
     SimpleNet.print_total_params()
 
     while iters.eval() <= iter_limit:
-        tf.logging.info(f'Iter:{iters.eval()}...')
+        current_iter = iters.eval()
+
+        if current_iter%5==0:
+            tf.logging.info(f'Iter:{iters.eval()}...')
+
         batch_xs, batch_ys = dh.get_next_batch(iter_based=True, split_channels=True)
         sess.run(update, feed_dict={x:batch_xs, y:batch_ys})
 
-
-
-
-        current_iter = iters.eval()
         if current_iter % 10 == 0:
             evals = evaluate.evaluate(sess, infer, x, y, batch_xs, batch_ys, '../report/train_progress.csv')
             s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
-            summaryWriter.add_summary(s, current_iter)
+            trainWriter.add_summary(s, current_iter)
 
         if current_iter % 50 == 0:
             tf.logging.info(yellow('Testing...'))
             batch_xs, batch_ys = dh.get_next_batch(iter_based=True, force_test=True, split_channels=True)
             evals = evaluate.evaluate(sess, infer, x, y, batch_xs, batch_ys, '../report/test_progress.csv')
-
+            s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
+            testWriter.add_summary(s, current_iter)
 
             save_path = saver.save(sess, f'../models/cnn-rnn-{current_iter}.ckpt')
             tf.logging.info(green(f'Checkpoint: {save_path}'))
