@@ -23,7 +23,7 @@ github_username:  ryanhausen
 
 # Build settings
 markdown: kramdown
-theme: jekyll-theme-time-machine
+theme: jekyll-theme-cayman
 gems:
   - jekyll-feed
 exclude:
