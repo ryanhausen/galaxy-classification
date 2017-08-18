@@ -81,5 +81,5 @@ def evaluate_tensorboard(logit_y,ys):
     tf.summary.scalar('Spheroid', single_class_accuracy(yh,ys,0))
     tf.summary.scalar('Disk', single_class_accuracy(yh,ys,1))
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))
-    tf.summary.scalar('Point Source', single_class_accuracy(yh,ys,3))
+    tf.summary.scalar('Point_Source', single_class_accuracy(yh,ys,3))
     tf.summary.scalar('Unknown', single_class_accuracy(yh,ys,4))

@@ -5,6 +5,12 @@ from tensorflow.contrib.layers import batch_norm
 from tensorflow.contrib.rnn import BasicRNNCell, static_rnn, BasicLSTMCell
 
 
+#def selu(x):
+#    with tf.name_scope('elu'):
+#        alpha = 1.6732632423543772848170429916717
+#        scale = 1.0507009873554804934193349852946
+#        return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
+
 class SimpleNet:
     num_channels = 4
 
@@ -27,8 +33,8 @@ class SimpleNet:
             for dim in shape:
                 variable_parametes *= dim.value
             total_parameters += variable_parametes
-        tf.logging.info(f'TOTAL NUMBER OF PARAMETERS:{total_parameters}')
 
+        return f'TOTAL NUMBER OF PARAMETERS:{total_parameters}'
 
     @staticmethod
     #https://arxiv.org/abs/1502.01852
@@ -45,6 +51,22 @@ class SimpleNet:
         elif len(shape) == 4:
             k_sqr_d = shape[0] * shape[1] * shape[2]
             std = math.sqrt(2 / k_sqr_d)
+
+        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
+
+    @staticmethod
+    def selu_init(shape, dtype, partition_info=None):
+        std = None
+
+        # bias
+        if len(shape) ==1:
+            return tf.constant(0.0, shape=shape)
+        # fc Layer
+        if len(shape) == 2:
+            std = math.sqrt(1/shape[0])
+        # conv layer
+        elif len(shape) == 4:
+            std = math.sqrt(1 / np.prod(shape[:-1]))
 
         return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
 
@@ -76,7 +98,7 @@ class SimpleNet:
 
     @staticmethod
     def c1w_shape():
-        return [5,5,1,32]
+        return [3,3,1,32]
 
     @staticmethod
     def c2w_shape():
@@ -88,7 +110,11 @@ class SimpleNet:
 
     @staticmethod
     def c4w_shape():
-        return [3, 3, 128, 10]
+        return [3, 3, 128, 128]
+
+    @staticmethod
+    def c5w_shape():
+        return [3, 3, 128, 128]
 
     @staticmethod
     def f1w_shape():
@@ -111,25 +137,31 @@ class SimpleNet:
             x = SimpleNet.conv2d(x, SimpleNet.c1w_shape(), s=2, pad='VALID')
             tf.logging.info(f'CONV1:{x.shape.as_list()}')
 
-            #x = SimpleNet.max_pool(x)
-
+#        with tf.variable_scope('max_pool1', reuse=reuse):
+#            x = SimpleNet.max_pool(x)
+#
 #            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
         with tf.variable_scope('conv2', reuse=reuse):
             x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=2, pad='VALID')
             tf.logging.info(f'CONV2:{x.shape.as_list()}')
 
-            #x = SimpleNet.max_pool(x)
-
-            #tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+#        with tf.variable_scope('max_pool2', reuse=reuse):
+#            x = SimpleNet.max_pool(x)
+#
+#            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
         with tf.variable_scope('conv3', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), pad='VALID')
+            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=2, pad='VALID')
             tf.logging.info(f'CONV3:{x.shape.as_list()}')
 
         with tf.variable_scope('conv4', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c4w_shape(), pad='VALID')
+            x = SimpleNet.conv2d(x, SimpleNet.c4w_shape(), s=2, pad='VALID')
             tf.logging.info(f'CONV4:{x.shape.as_list()}')
+
+        with tf.variable_scope('conv5', reuse=reuse):
+            x = SimpleNet.conv2d(x, SimpleNet.c5w_shape(), s=2, pad='VALID')
+            tf.logging.info(f'CONV5:{x.shape.as_list()}')
 
         if global_avg_pooling:
             dim_in = x.shape.as_list()[-1]
@@ -224,6 +256,21 @@ class SimpleRNN:
 
         return tf.truncated_normal(shape, stddev=std, seed=SimpleRNN.seed)
 
+    @staticmethod
+    def selu_init(shape, dtype, partition_info=None):
+        std = None
+
+        # bias
+        if len(shape) ==1:
+            return tf.constant(0.0, shape=shape)
+        # fc Layer
+        if len(shape) == 2:
+            std = math.sqrt(1/shape[0])
+        # conv layer
+        elif len(shape) == 4:
+            std = math.sqrt(1 / np.prod(shape[:-1]))
+
+        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
 
     def build_graph(x) :
 
