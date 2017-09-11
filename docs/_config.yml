@@ -17,8 +17,8 @@ title: Galaxy Classification using Deep Learning
 email: rhausen@ucsc.edu
 description: > # this means to ignore newlines until "baseurl:"
     Looking at pictures and choosing shapes.
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "https://ryanhausen.github.io/galaxy-classification/" # the base hostname & protocol for your site, e.g. http://example.com
+baseurl: "https://ryanhausen.github.io/galaxy-classification" # the subpath of your site, e.g. /blog
+url: "https://ryanhausen.github.io/galaxy-classification" # the base hostname & protocol for your site, e.g. http://example.com
 github_username:  ryanhausen
 
 # Build settings

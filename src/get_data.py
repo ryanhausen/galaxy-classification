@@ -338,44 +338,41 @@ start = time.time()
 
 # this dir should always exist until I find a way to get TinyTim data
 data_dir = _new_dir('../','data')
-
 # tmp dir for the raw files
 tmp_dir = _new_dir(data_dir, 'tmp')
+# dir for images 
+img_dir = _new_dir(data_dir, 'imgs')
 
-if len(os.listdir(tmp_dir)) == 0:
-    # put all the raw data in the tmp directory
-    _get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
+# do data if it isn't there yet, otherwise skip to labels
+if len(os.listdir(img_dir))==0:
+    if len(os.listdir(tmp_dir)) == 0:
+        # put all the raw data in the tmp directory
+        _get_ftp(data_ftp_url, tmp_dir, path=data_ftp_dir)
+        
+        # unpack all the tarballs
+        _unpack_dir(tmp_dir)
     
-    # unpack all the tarballs
-    _unpack_dir(tmp_dir)
-
-# get the distinct image names
-sources =  _distinct_sources(tmp_dir)
-
-# Apply preprocessing to the images and save them to imgs 
-bands = ['h','j','v','z']
-tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}
-
-imgs_dir = os.path.join(data_dir, 'imgs')    
-if 'imgs' not in os.listdir(data_dir):
-    os.mkdir(imgs_dir)    
-
-if RUN_PARALLEL:
-    print('Asyncing!')
-    Pool().map(process_image, zip(sources.items(), repeat(tt_imgs)))
-else:
-    print('Sequentialing!')
-    for args in zip(sources.items(), repeat(tt_imgs)):
-        process_image(args)
-
-# clean up
-#rmtree(tmp_dir, ignore_errors=True)
+    # get the distinct image names
+    sources =  _distinct_sources(tmp_dir)
+    
+    # Apply preprocessing to the images and save them to imgs 
+    bands = ['h','j','v','z']
+    tt_imgs = {b:fits.getdata('../data/tinytim/{}.fits'.format(b)) for b in bands}
+    
+    if RUN_PARALLEL:
+        print('Asyncing!')
+        Pool().map(process_image, zip(sources.items(), repeat(tt_imgs)))
+    else:
+        print('Sequentialing!')
+        for args in zip(sources.items(), repeat(tt_imgs)):
+            process_image(args)
+    
+    # clean up
+    #rmtree(tmp_dir, ignore_errors=True)
 # DATA ------------------------------------------------------------------------
 
 # LABELS ----------------------------------------------------------------------
-lbl_dir = os.path.join(data_dir, 'labels')
-if 'labels' not in os.listdir(data_dir):
-    os.mkdir(lbl_dir)
+lbl_dir = _new_dir(data_dir, 'labels')
 
 # put all the raw data in the tmp directory
 _get_ftp(labels_ftp_url, lbl_dir, path=labels_ftp_dir)
@@ -394,7 +391,7 @@ for f in os.listdir(lbl_dir):
     elif f in lbl_tables:
         print('Extracting {}...'.format(f))
         with gzip.open(f_dir, 'r') as gz, open(f_dir[:-3], 'w') as f:
-            f.write(gz.read())
+            f.write(gz.read().decode('utf-8'))
 
         # clean up
         print('Removing {}'.format(f))
