@@ -14,7 +14,7 @@ from network import SimpleNet, SimpleRNN
 from datahelper import DataHelper
 
 x = SimpleNet.x
-cnn = SimpleNet.build_graph(x)
+cnn = SimpleNet.build_cnn(x, reuse=None, raw_out=True)
 
 rnn = SimpleRNN.build_graph(cnn)
 infer = tf.nn.softmax(rnn)
@@ -29,16 +29,16 @@ saver = tf.train.Saver()
 
 with tf.Session() as sess:
     print('Restoring')
-    saver.restore(sess, '../models/cnn-rnn-50.ckpt')
+    saver.restore(sess, '../models/cnn-rnn-100.ckpt')
 
     while True:
-        img, lbl = dh.get_next_example()
+        img, lbl = dh.get_next_example(split_channels=True)
 
         _y = sess.run(infer, feed_dict={x:img})
         print(f'Label:{lbl}\nGuess:{_y}')
 
         for i in range(4):
             plt.figure()
-            plt.imshow(img[0,:,:,i], cmap='gray')
+            plt.imshow(img[i,:,:,0], cmap='gray')
 
         plt.show()

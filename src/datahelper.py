@@ -328,6 +328,11 @@ class DataHelper(object):
 
                 del raw
 
+                
+                if self._band_transform_func:
+                    for i in range(x_tmp.shape[2]):
+                        x_tmp[:,:,i] = self._band_transform_func(x_tmp[:,:,i])
+
                 if split_channels:
                     x.extend([x_tmp[:,:,i].reshape([84,84,1]) for i in range(x_tmp.shape[2])])
                 else:
@@ -373,7 +378,7 @@ class DataHelper(object):
 
         return (cls_count_train, cls_count_test)
 
-    def get_next_example(self, img_id=None):
+    def get_next_example(self, img_id=None, split_channels=False):
         bands = ['h','j','v','z']
 
         source = None
@@ -394,8 +399,15 @@ class DataHelper(object):
             if bands[i] in self._bands:
                 tmp_x.append(x[:,:,i])
 
-        x = np.dstack(tmp_x).reshape(1,84,84,len(self._bands))
+        x = np.dstack(tmp_x)
 
+        if split_channels:
+            x = np.array([x[:,:,i].reshape([84,84,1]) for i in range(x.shape[2])])
+        else:
+            x = x.reshape(1,84,84,len(self._bands))
+
+
+        print(x.shape)
 
         y = self._lbls.loc[self._lbls['ID']=='GDS_'+ source[:-5], self._lbl_cols]
         y = y.values.reshape(self._num_classes)
