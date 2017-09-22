@@ -6,6 +6,9 @@ Created on Thu Nov  3 12:50:28 2016
 """
 import tensorflow as tf
 
+import io
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 def top_1(yh,ys):
     return tf.reduce_mean(tf.to_float(tf.nn.in_top_k(yh,tf.argmax(ys, 1),1)), name='TOP-1')
@@ -72,6 +75,28 @@ def save(outs, save_to):
     else:
         tf.logging.info(out_string)
 
+def get_plot_img(ys, yh):
+    c_matrix = confusion_matrix(ys, yh)
+    plt.figure()
+    plt.imshow(c_matrix, interpolation='nearest', cmap='Blues')
+    classes = ['Sph', 'Disk', 'Irr', 'PS', 'Unk']
+    ticks = [0,1,2,3,4]
+    plt.xticks(ticks, classes, rotation=45)
+    plt.yticks(ticks, classes)
+    plt.xlabel('Prediction')
+    plt.ylabel('Label')
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    img = tf.image.decode_png(buf.getvalue(), channels=4)
+    buf.close()
+
+    img = tf.expand_dims(img, 0)
+
+
+    return img
+
+
 def evaluate_tensorboard(logit_y,ys):
 
     yh = tf.nn.softmax(logit_y)
@@ -83,3 +108,9 @@ def evaluate_tensorboard(logit_y,ys):
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))
     tf.summary.scalar('Point_Source', single_class_accuracy(yh,ys,3))
     tf.summary.scalar('Unknown', single_class_accuracy(yh,ys,4))
+
+    c_ys = tf.argmax(ys, 1)
+    c_yh = tf.arg_max(yh, 1)
+
+    c_matrix = get_plot_img(c_ys.eval(), c_yh.eval())
+    tf.summary.image('Confusion_Matrix', c_matrix)

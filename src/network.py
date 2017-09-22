@@ -3,21 +3,22 @@ import math
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm
 from tensorflow.contrib.rnn import BasicRNNCell, static_rnn, BasicLSTMCell
-
-
-#def selu(x):
-#    with tf.name_scope('elu'):
-#        alpha = 1.6732632423543772848170429916717
-#        scale = 1.0507009873554804934193349852946
-#        return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
+from tensorflow.contrib.layers import variance_scaling_initializer
 
 class SimpleNet:
+    log_activations = True
     num_channels = 4
 
     seed = None
     x = tf.placeholder(tf.float32, [None,84,84,1])
-    y = tf.placeholder(tf.float32, [None, 100])
+    y = tf.placeholder(tf.float32, [None, 5])
 
+    @staticmethod
+    def selu(x):
+        with tf.name_scope('selu'):
+            alpha = 1.6732632423543772848170429916717
+            scale = 1.0507009873554804934193349852946
+            return scale*tf.where(x>=0.0, x, alpha*tf.nn.elu(x))
 
     @staticmethod
     def print_total_params():
@@ -56,19 +57,22 @@ class SimpleNet:
 
     @staticmethod
     def selu_init(shape, dtype, partition_info=None):
-        std = None
+        return variance_scaling_initializer(factor=1.0, mode='FAN_IN')(shape, dtype, partition_info)
 
-        # bias
-        if len(shape) ==1:
-            return tf.constant(0.0, shape=shape)
-        # fc Layer
-        if len(shape) == 2:
-            std = math.sqrt(1/shape[0])
-        # conv layer
-        elif len(shape) == 4:
-            std = math.sqrt(1 / np.prod(shape[:-1]))
 
-        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
+#        std = None
+#
+#        # bias
+#        if len(shape) ==1:
+#            return tf.constant(0.0, shape=shape)
+#        # fc Layer
+#        if len(shape) == 2:
+#            std = math.sqrt(1/shape[0])
+#        # conv layer
+#        elif len(shape) == 4:
+#            std = math.sqrt(1 / np.prod(shape[:-1]))
+#
+#        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
 
     @staticmethod
     def conv2d(x, k, s=1, pad='SAME'):
@@ -78,6 +82,13 @@ class SimpleNet:
         strides = [1,s,s,1]
 
         return tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(x, w, strides, pad), b))
+        #return SimpleNet.selu(tf.nn.bias_add(tf.nn.conv2d(x, w, strides, pad), b))
+        #return SimpleNet.selu(tf.nn.conv2d(x, w, strides, pad))
+#        x = tf.nn.conv2d(x, w, strides, pad)
+#        x = tf.Print(x, [x], 'CONV')
+#        x = tf.where(x>=0,x,tf.exp(x)-1.0)
+#        x = tf.Print(x, [x], 'ELU')
+#        return tf.nn.elu(x)
 
     @staticmethod
     def max_pool(x, k=2):
@@ -97,24 +108,28 @@ class SimpleNet:
             return tf.nn.bias_add(tf.matmul(x, w), b)
 
     @staticmethod
+    def drop_out(x, keep_prob):
+        return tf.nn.dropout(x, keep_prob)
+
+    @staticmethod
     def c1w_shape():
-        return [3,3,1,32]
+        return [3,3,1,1]
 
     @staticmethod
     def c2w_shape():
-        return [3,3,32,64]
+        return [3,3,1,8]
 
     @staticmethod
     def c3w_shape():
-        return [3, 3, 64, 128]
+        return [3,3,8,32]
 
     @staticmethod
     def c4w_shape():
-        return [3, 3, 128, 128]
+        return [3,3,32,64]
 
     @staticmethod
     def c5w_shape():
-        return [3, 3, 128, 128]
+        return [3,3,64,64]
 
     @staticmethod
     def f1w_shape():
@@ -129,47 +144,98 @@ class SimpleNet:
         return [2048, 5]
 
     @staticmethod
-    def build_cnn(x, reuse, global_avg_pooling=False, raw_out=False):
+    def build_cnn(x, keep_prob, global_avg_pooling=False, raw_out=False):
 
         tf.logging.info(f'IN-SHAPE:{x.shape.as_list()}')
 
-        with tf.variable_scope('conv1', reuse=reuse):
+        with tf.variable_scope('conv1'):
             x = SimpleNet.conv2d(x, SimpleNet.c1w_shape(), s=2, pad='VALID')
-            tf.logging.info(f'CONV1:{x.shape.as_list()}')
+            tf.logging.info(f'CONV1a:{x.shape.as_list()}')
+
+#        with tf.variable_scope('conv1', reuse=True):
+#            x = SimpleNet.conv2d(x, SimpleNet.c1w_shape(), s=1, pad='SAME')
+#            tf.logging.info(f'CONV1c:{x.shape.as_list()}')
+
+#        if SimpleNet.log_activations:
+#            with tf.name_scope('activations') as act:
+#                tf.summary.histogram('conv1', x)
 
 #        with tf.variable_scope('max_pool1', reuse=reuse):
 #            x = SimpleNet.max_pool(x)
-#
 #            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
-        with tf.variable_scope('conv2', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=2, pad='VALID')
+
+        x = tf.cond(keep_prob > tf.constant(0.0),
+                    lambda: tf.nn.dropout(x, keep_prob),
+                    lambda: x)
+
+        with tf.variable_scope('conv2'):
+            x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=1, pad='VALID')
             tf.logging.info(f'CONV2:{x.shape.as_list()}')
 
-#        with tf.variable_scope('max_pool2', reuse=reuse):
-#            x = SimpleNet.max_pool(x)
-#
-#            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+        x = tf.cond(keep_prob > tf.constant(0.0),
+                    lambda: tf.nn.dropout(x, keep_prob),
+                    lambda: x)
 
-        with tf.variable_scope('conv3', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=2, pad='VALID')
+#        with tf.variable_scope('conv2', reuse=True):
+#            x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=1, pad='SAME')
+#            tf.logging.info(f'CONV2b:{x.shape.as_list()}')
+#
+#        if SimpleNet.log_activations:
+#            with tf.name_scope(act):
+#                tf.summary.histogram('conv2', x)
+#
+        with tf.variable_scope('max_pool2'):
+            x = SimpleNet.max_pool(x)
+            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+#
+        with tf.variable_scope('conv3'):
+            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=1, pad='VALID')
             tf.logging.info(f'CONV3:{x.shape.as_list()}')
 
-        with tf.variable_scope('conv4', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c4w_shape(), s=2, pad='VALID')
+        x = tf.cond(keep_prob > tf.constant(0.0),
+                    lambda: tf.nn.dropout(x, keep_prob),
+                    lambda: x)
+
+        with tf.variable_scope('max_pool3'):
+            x = SimpleNet.max_pool(x)
+            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+
+#        if SimpleNet.log_activations:
+#            with tf.name_scope(act):
+#                tf.summary.histogram('conv3', x)
+
+        with tf.variable_scope('conv4'):
+            x = SimpleNet.conv2d(x, SimpleNet.c4w_shape(), s=1, pad='VALID')
             tf.logging.info(f'CONV4:{x.shape.as_list()}')
 
-        with tf.variable_scope('conv5', reuse=reuse):
-            x = SimpleNet.conv2d(x, SimpleNet.c5w_shape(), s=2, pad='VALID')
+        x = tf.cond(keep_prob > tf.constant(0.0),
+                    lambda: tf.nn.dropout(x, keep_prob),
+                    lambda: x)
+
+#        if SimpleNet.log_activations:
+#            with tf.name_scope(act):
+#                tf.summary.histogram('conv4', x)
+#
+        with tf.variable_scope('conv5'):
+            x = SimpleNet.conv2d(x, SimpleNet.c5w_shape(), s=1, pad='VALID')
             tf.logging.info(f'CONV5:{x.shape.as_list()}')
+
+        x = tf.cond(keep_prob > tf.constant(0.0),
+                    lambda: tf.nn.dropout(x, keep_prob),
+                    lambda: x)
+
+#        if SimpleNet.log_activations:
+#            with tf.name_scope(act):
+#                tf.summary.histogram('conv5', x)
 
         if global_avg_pooling:
             dim_in = x.shape.as_list()[-1]
-            with tf.variable_scope('gbl_avg_pool', reuse=reuse):
+            with tf.variable_scope('gbl_avg_pool'):
                 w = tf.get_variable('w', shape=[1,1,dim_in,SimpleNet.y.shape.as_list()[-1]],initializer=SimpleNet.var_init)
             x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
 
-            tf.logging.info(f'CONV5:{x.shape.as_list()}')
+            tf.logging.info(f'GLB_CONV:{x.shape.as_list()}')
 
             shp = x.shape.as_list()
             ks = [1,shp[1],shp[1],1]
@@ -192,21 +258,21 @@ class SimpleNet:
 
             tf.logging.info(f'RESHAPE:{x.shape.as_list()}')
 
-            with tf.variable_scope('fc1', reuse=reuse):
+            with tf.variable_scope('fc1'):
                 x = SimpleNet.fc(x, SimpleNet.f1w_shape()[1], tf.nn.relu)
 
             tf.logging.info(f'FC1:{x.shape.as_list()}')
 
             x = tf.nn.dropout(x, 0.5)
 
-            with tf.variable_scope('fc2', reuse=reuse):
+            with tf.variable_scope('fc2'):
                 x = SimpleNet.fc(x, SimpleNet.f2w_shape()[1])
 
             tf.logging.info(f'FC2:{x.shape.as_list()}')
 
             x = tf.nn.dropout(x, 0.5)
 
-            with tf.variable_scope('fc3', reuse=reuse):
+            with tf.variable_scope('fc3'):
                 x = SimpleNet.fc(x, SimpleNet.f3w_shape()[1])
 
             tf.logging.info(f'FC3:{x.shape.as_list()}')
@@ -233,7 +299,7 @@ class SimpleRNN:
     seed = None
 
     num_channels = 4
-    num_hidden = 5
+    num_hidden = 1024
     out_classes = 5
     x = tf.placeholder(tf.float32, [None,num_channels,SimpleNet.y.shape.as_list()[-1]])
     y = tf.placeholder(tf.float32, [None,out_classes])
@@ -257,42 +323,59 @@ class SimpleRNN:
         return tf.truncated_normal(shape, stddev=std, seed=SimpleRNN.seed)
 
     @staticmethod
+    def selu(x):
+        with tf.name_scope('selu'):
+            alpha = 1.6732632423543772848170429916717
+            scale = 1.0507009873554804934193349852946
+            #return tf.multiply(scale, tf.multiply(alpha, tf.nn.elu(x)))
+            return scale*tf.where(x>0.0, x, alpha*tf.nn.elu(x))
+
+
+    @staticmethod
     def selu_init(shape, dtype, partition_info=None):
-        std = None
-
-        # bias
-        if len(shape) ==1:
-            return tf.constant(0.0, shape=shape)
-        # fc Layer
-        if len(shape) == 2:
-            std = math.sqrt(1/shape[0])
-        # conv layer
-        elif len(shape) == 4:
-            std = math.sqrt(1 / np.prod(shape[:-1]))
-
-        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
+        return variance_scaling_initializer(factor=1.0, mode='FAN_IN')(shape, dtype, partition_info)
+#        std = None
+#
+#        # bias
+#        if len(shape) ==1:
+#            return tf.constant(0.0, shape=shape)
+#        # fc Layer
+#        if len(shape) == 2:
+#            std = math.sqrt(1/shape[0])
+#        # conv layer
+#        elif len(shape) == 4:
+#            std = math.sqrt(1 / np.prod(shape[:-1]))
+#
+#        return tf.truncated_normal(shape, stddev=std, seed=SimpleNet.seed)
 
     def build_graph(x) :
 
        # reformat for the RNN
-       x = tf.reshape(x, [-1, 4, np.prod(x.shape.as_list()[1:])])
+       shp = x.shape.as_list()
+       if len(shp)==2:
+           x = tf.reshape(x, [-1, 4, shp[1]])
+       else:
+           x = tf.reshape(x, [-1, 4, np.prod(x.shape.as_list()[1:])])
+       tf.logging.info(f'RNN PREP:{x.shape.as_list()}')
+
        x = tf.unstack(x, num=4, axis=1)
+
+       tf.logging.info(f'RNN NUM_EXAMPLES:{len(x)}')
 
        # rnn
        with tf.variable_scope('rnn'):
            rnn = BasicLSTMCell(SimpleRNN.num_hidden)
+           # process rnn
+           outputs, states = static_rnn(rnn, x, dtype=tf.float32)
 
-       # process rnn
-       outputs, states = static_rnn(rnn, x, dtype=tf.float32)
+       with tf.variable_scope('rnn_act'):
+           w = tf.get_variable('w', shape=[SimpleRNN.num_hidden, SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
+           b = tf.get_variable('b', shape=[SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
 
-#       with tf.variable_scope('rnn_act'):
-#           w = tf.get_variable('w', shape=[SimpleRNN.num_hidden, SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
-#           b = tf.get_variable('b', shape=[SimpleRNN.out_classes], initializer=SimpleRNN.var_init)
-#
-#       return tf.nn.bias_add(tf.matmul(outputs[-1], w), b)
+       out = tf.nn.bias_add(tf.matmul(outputs[-1], w), b)
+       tf.logging.info(f'OUT SHAPE: {out.shape.as_list()}')
 
-       return outputs[-1]
-
+       return out
 
 
 class CandleNet:
@@ -343,7 +426,7 @@ class CandleNet:
 
             #print 'conv2: {}'.format(conv2.get_shape())
 
-            # Thrid Convolution Layer
+            # Thttp://0.0.0.0:6006/hrid Convolution Layer
             conv3 = conv2d(conv2, _weights['wc3'], _biases['bc3'])
 
             #print 'conv3: {}'.format(conv3.get_shape())
