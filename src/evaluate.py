@@ -44,7 +44,7 @@ def single_class_accuracy(yh, ys, class_idx):
 
     return tf.divide(correct_class_examples, total)
 
-def evaluate(session, net, x, y, xs, ys, save_to, train=True):
+def evaluate(session, net, x, y, keep_prob, xs, ys, drop_out, save_to, train=True):
     funcs = [top_1(net, y),
              top_2(net, y),
              rmse(net, ys),
@@ -54,9 +54,9 @@ def evaluate(session, net, x, y, xs, ys, save_to, train=True):
 
     for f in funcs:
         if type(f) == tuple:
-            outs.append(class_accuracy_part2(session.run(f, feed_dict={x: xs, y: ys})))
+            outs.append(class_accuracy_part2(session.run(f, feed_dict={x: xs, y: ys, keep_prob:drop_out})))
         else:
-            outs.append(session.run(f, feed_dict={x: xs, y: ys}))
+            outs.append(session.run(f, feed_dict={x: xs, y: ys, keep_prob:drop_out}))
 
     out_s = [str(o) for o in outs]
     if save_to:
@@ -111,6 +111,8 @@ def evaluate_tensorboard(logit_y,ys):
 
     c_ys = tf.argmax(ys, 1)
     c_yh = tf.arg_max(yh, 1)
+    c_matrix = tf.cast(tf.confusion_matrix(c_ys, c_yh, num_classes=5), tf.float16)
+    tf.summary.image('Confusion_Matrix', tf.reshape(c_matrix, [1, 5, 5, 1]))
 
-    c_matrix = get_plot_img(c_ys.eval(), c_yh.eval())
-    tf.summary.image('Confusion_Matrix', c_matrix)
+
+

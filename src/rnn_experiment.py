@@ -6,25 +6,25 @@ init(autoreset=True)
 red = lambda s: Fore.RED + s
 yellow = lambda s: Fore.YELLOW + s
 green = lambda s: Fore.GREEN + s
-
 import numpy as np
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 import evaluate
 from network import SimpleNet, SimpleRNN
 from datahelper import DataHelper
 
 tf.logging.set_verbosity('INFO')
-
 iters = tf.Variable(1, trainable=False, name='iter')
 learning_rate = 1e-3
-batch_size = 100
+batch_size = 50
 iter_limit = 10000
 seed = None
-beta = 0.5
+beta = 2.0
 dropout_keep = -1.0
 restore_file = None#'../models/cnn-rnn-25000.ckpt'
+
+
 
 x = SimpleNet.x
 keep_prob = tf.placeholder(tf.float32)
@@ -70,10 +70,10 @@ init = tf.global_variables_initializer()
 scaler = StandardScaler()
 #scaler = MinMaxScaler(feature_range=(-1, 1))
 valid_img = lambda a: a.sum()>0 and np.isfinite(a).sum()==np.prod(a.shape)
-norm = lambda a: scaler.fit_transform(a.reshape(-1,1)).reshape(84,84).astype(np.float32) if valid_img(a) else a
-mean_subtraction = lambda a: norm((a-a.mean()))
+scale = lambda a: scaler.fit_transform(a.reshape(-1,1)).reshape(84,84).astype(np.float32) if valid_img(a) else a
+mean_subtraction = lambda a: a-a.mean()
 identity = lambda a: a
-b_trans = lambda a: norm(mean_subtraction(a))
+b_trans = lambda a: scale(a)
 
 dh = DataHelper(batch_size=batch_size, band_transform_func=b_trans)
 epoch = 1
@@ -104,14 +104,14 @@ with tf.Session() as sess:
         sess.run(update, feed_dict={x:batch_xs, y:batch_ys, keep_prob:dropout_keep})
 
         if current_iter % 10 == 0:
-            #evals = evaluate.evaluate(sess, infer, x, y, batch_xs, batch_ys, '../report/train_progress.csv')
+            evals = evaluate.evaluate(sess, infer, x, y, keep_prob, batch_xs, batch_ys, dropout_keep, '../report/train_progress.csv')
             s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys, keep_prob:-1.0})
             trainWriter.add_summary(s, current_iter)
 
         if current_iter % 50 == 0:
             tf.logging.info(yellow('Testing...'))
             batch_xs, batch_ys = dh.get_next_batch(iter_based=True, force_test=True, split_channels=True)
-            #evals = evaluate.evaluate(sess, infer, x, y, batch_xs, batch_ys, '../report/test_progress.csv')
+            evals = evaluate.evaluate(sess, infer, x, y, keep_prob, batch_xs, batch_ys, dropout_keep, '../report/test_progress.csv')
 
 #            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 #            run_metadata = tf.RunMetadata()
@@ -123,6 +123,7 @@ with tf.Session() as sess:
 
             s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys, keep_prob:-1.0})
             testWriter.add_summary(s, current_iter)
+
 
             save_path = saver.save(sess, f'../models/cnn-rnn-{current_iter}.ckpt')
             tf.logging.info(green(f'Checkpoint: {save_path}'))
