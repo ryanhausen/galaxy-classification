@@ -19,7 +19,7 @@ bands:
 {% for b in page.bands %}
 	{% assign img_name = "spheroid-" | append: b | append: "-center-diff.png" %}
 
-![sph-center](assets/imgs/2017-07-13/{{ img_name }})
+![sph-center]({{ site.baseurl}}/assets/imgs/2017-07-13/{{ img_name }})
 
 {% endfor %}
 
