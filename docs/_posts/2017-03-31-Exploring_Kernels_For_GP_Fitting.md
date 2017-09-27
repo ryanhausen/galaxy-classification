@@ -19,7 +19,7 @@ $$cov(x,x') = \sigma_fk(x, x') + \Sigma_n$$
 
 The data used for fitting each process is the measured values($16^{th}$, median, $84^{th}$) from the confident disks in the H band.
 
-![measured-data]({{ site.url }}/assets/imgs/2017-03-28/measured_data.png)
+![measured-data]({{ site.baseurl }}/assets/imgs/2017-03-28/measured_data.png)
 
 ### Radial Basis Function
 
@@ -28,16 +28,16 @@ $$k(x, x')=\exp(\frac{|x-x'|^2}{2l^2})$$
 
 Where $l$ is the length scale paramter.
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/rbf-fitted.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/rbf-fitted.png)
 
 Samples from distribution:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/rbf-sample-mean.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/rbf-samples.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/rbf-sample-mean.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/rbf-samples.png)
 
 
 Image generated from  the learned distriubtion and the samples path against the model:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/rbf-gen-image.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/rbf-fit-sample.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/rbf-gen-image.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/rbf-fit-sample.png)
 
 
 ### Matern
@@ -49,16 +49,16 @@ $$k(x,x') = \sigma^2\frac{2^{1-\nu}}{\Gamma(\nu)}\Big(\sqrt{2\nu}
 
 Where $\Gamma$ is the gamma function and $K_\nu$ is the Bessel function,  $l$ is the length scale, and $\nu$ is a non-negative parameter.
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/matern-fitted.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/matern-fitted.png)
 
 Samples from distribution:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/matern-sample-mean.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/matern-samples.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/matern-sample-mean.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/matern-samples.png)
 
 
 Image generated from  the learned distriubtion and the samples path against the model:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/matern-gen-image.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/matern-fit-sample.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/matern-gen-image.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/matern-fit-sample.png)
 
 ### Rational Quadratic
 
@@ -68,16 +68,16 @@ $$k(x,x')=\Big(1+\frac{|x-x'|^2}{2\alpha l^2}\Big)^{-\alpha}$$
 
 
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/ratq-fitted.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/ratq-fitted.png)
 
 Samples from distribution:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/ratq-sample-mean.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/ratq-samples.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/ratq-sample-mean.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/ratq-samples.png)
 
 
 Image generated from  the learned distriubtion and the samples path against the model:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/ratq-gen-image.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/ratq-fit-sample.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/ratq-gen-image.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/ratq-fit-sample.png)
 
 ### Squared Dot Product
 
@@ -86,16 +86,16 @@ Definition:
 $$k(x, x')=(\sigma_0^2+ x \cdot x')^2$$
 
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/dotprod-fitted.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/dotprod-fitted.png)
 
 Samples from distribution:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/dotprod-sample-mean.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/dotprod-samples.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/dotprod-sample-mean.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/dotprod-samples.png)
 
 
 Image generated from  the learned distriubtion and the samples path against the model:
 
-![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/dotprod-gen-image.png) ![fitted-model]({{ site.url }}/assets/imgs/2017-03-28/dotprod-fit-sample.png)
+![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/dotprod-gen-image.png) ![fitted-model]({{ site.baseurl }}/assets/imgs/2017-03-28/dotprod-fit-sample.png)
 
 ### Work in Progress
 

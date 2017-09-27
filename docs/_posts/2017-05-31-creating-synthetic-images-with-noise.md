@@ -24,14 +24,14 @@ In my experiments this seemed to work the best. The signal to noise values for a
 
 ### Example
 
-![h]({{ site.url }}/assets/imgs/2017-05-31/h-no-noise.png)
-![h]({{ site.url }}/assets/imgs/2017-05-31/h-noise.png)
+![h]({{ site.baseurl }}/assets/imgs/2017-05-31/h-no-noise.png)
+![h]({{ site.baseurl }}/assets/imgs/2017-05-31/h-noise.png)
 
-![j]({{ site.url }}/assets/imgs/2017-05-31/j-no-noise.png)
-![j]({{ site.url }}/assets/imgs/2017-05-31/j-noise.png)
+![j]({{ site.baseurl }}/assets/imgs/2017-05-31/j-no-noise.png)
+![j]({{ site.baseurl }}/assets/imgs/2017-05-31/j-noise.png)
 
-![v]({{ site.url }}/assets/imgs/2017-05-31/v-no-noise.png)
-![v]({{ site.url }}/assets/imgs/2017-05-31/v-noise.png)
+![v]({{ site.baseurl }}/assets/imgs/2017-05-31/v-no-noise.png)
+![v]({{ site.baseurl }}/assets/imgs/2017-05-31/v-noise.png)
 
-![z]({{ site.url }}/assets/imgs/2017-05-31/z-no-noise.png)
-![z]({{ site.url }}/assets/imgs/2017-05-31/z-noise.png)
+![z]({{ site.baseurl }}/assets/imgs/2017-05-31/z-no-noise.png)
+![z]({{ site.baseurl }}/assets/imgs/2017-05-31/z-noise.png)

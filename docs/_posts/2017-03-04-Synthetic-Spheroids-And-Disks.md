@@ -74,15 +74,15 @@ Fit a Gaussian Process to the data set of images we have to create images that s
 
 Start with the image(deep2_10521, h band, viewed in log scale) and its segmap.
 
-![raw_image]({{ site.url }}/assets/imgs/2017-03-04/raw_image.png)
+![raw_image]({{ site.baseurl }}/assets/imgs/2017-03-04/raw_image.png)
 
-![segmap]({{ site.url }}/assets/imgs/2017-03-04/raw_segmap.png)
+![segmap]({{ site.baseurl }}/assets/imgs/2017-03-04/raw_segmap.png)
 
 Get $I_{tot}$ by measuring the flux in the area of image where the segmap defines the source 
 
 Find the maximum point in the segmap area and use that as the center of the source. 
 
-![img_with_segandcenter]({{ site.url }}/assets/imgs/2017-03-04/img_with_segandcenter.png)
+![img_with_segandcenter]({{ site.baseurl }}/assets/imgs/2017-03-04/img_with_segandcenter.png)
 
 Starting from the center of the source measure the flux until it reaches at least $\frac{I_{tot}}{2}$ . Then, record that radius as $R_e$ and the mean values of the pixels in that radius as $I_e$.
 
@@ -92,17 +92,17 @@ After recording this for all of the confident spheroids and disks, we then radia
 
 Here's the graph for 30 objects from the dataset. The graph gets pretty messy with larger numbers.
 
-![result_no_analytic]({{ site.url }}/assets/imgs/2017-03-04/30_disk_result.png)
+![result_no_analytic]({{ site.baseurl }}/assets/imgs/2017-03-04/30_disk_result.png)
 
 The data is normalized to $I_e$ and $R_e$ so if we zoom in to the value 1 for $I_e$ and $R_e$ we see that all of the data lines pass through that point.
 
-![result_no_analytic]({{ site.url }}/assets/imgs/2017-03-04/30_disk_convergence.png)
+![result_no_analytic]({{ site.baseurl }}/assets/imgs/2017-03-04/30_disk_convergence.png)
 
 With all the values we then plot the $84^{th}$, $50^{th}$.and $16^{th}$ percentiles from the objects rank ordered by brightness. 
 
 <ul class="photo-gallery">
   {% for image in page.images %}
-    <li><img src="{{ site.url }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
+    <li><img src="{{ site.baseurl }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
   {% endfor %}
 </ul>
 
@@ -110,7 +110,7 @@ For reference added in is an analytic disk and spheroid created without noise. F
 
 <ul class="photo-gallery">
   {% for image in page.analytic_images %}
-    <li><img src="{{ site.url }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
+    <li><img src="{{ site.baseurl }}{{ image.image_path }}" alt="{{ image.title}}"/></li>
   {% endfor %}
 </ul>
 

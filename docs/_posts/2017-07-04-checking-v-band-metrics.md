@@ -9,8 +9,8 @@ categories:
 
 ### Central Values for V-Band
 
-![v-center]({{ site.url }}/assets/imgs/2017-07-04/v-center.png)
-![v-center-ie]({{ site.url }}/assets/imgs/2017-07-04/v-center-ie.png)
+![v-center]({{ site.baseurl }}/assets/imgs/2017-07-04/v-center.png)
+![v-center-ie]({{ site.baseurl }}/assets/imgs/2017-07-04/v-center-ie.png)
 
 ### Double Check $R_e$ and $I_e$ Distributions
 
@@ -25,12 +25,12 @@ I changed the calculation in the signal to noise ratio to:
 Signal = The sum of the pixel values within the the effective radius
 Noise = The RMS of the noise pixels outside 3 * the effective radius
 
-![disk-h]({{ site.url }}/assets/imgs/2017-07-04/disk-h-hist.png)
-![disk-j]({{ site.url }}/assets/imgs/2017-07-04/disk-j-hist.png)
-![disk-v]({{ site.url }}/assets/imgs/2017-07-04/disk-v-hist.png)
-![disk-z]({{ site.url }}/assets/imgs/2017-07-04/disk-z-hist.png)
+![disk-h]({{ site.baseurl }}/assets/imgs/2017-07-04/disk-h-hist.png)
+![disk-j]({{ site.baseurl }}/assets/imgs/2017-07-04/disk-j-hist.png)
+![disk-v]({{ site.baseurl }}/assets/imgs/2017-07-04/disk-v-hist.png)
+![disk-z]({{ site.baseurl }}/assets/imgs/2017-07-04/disk-z-hist.png)
 
-![spheroid-h]({{ site.url }}/assets/imgs/2017-07-04/spheroid-h-hist.png)
-![spheroid-j]({{ site.url }}/assets/imgs/2017-07-04/spheroid-j-hist.png)
-![spheroid-v]({{ site.url }}/assets/imgs/2017-07-04/spheroid-v-hist.png)
-![spheroid-z]({{ site.url }}/assets/imgs/2017-07-04/spheroid-z-hist.png)
+![spheroid-h]({{ site.baseurl }}/assets/imgs/2017-07-04/spheroid-h-hist.png)
+![spheroid-j]({{ site.baseurl }}/assets/imgs/2017-07-04/spheroid-j-hist.png)
+![spheroid-v]({{ site.baseurl }}/assets/imgs/2017-07-04/spheroid-v-hist.png)
+![spheroid-z]({{ site.baseurl }}/assets/imgs/2017-07-04/spheroid-z-hist.png)

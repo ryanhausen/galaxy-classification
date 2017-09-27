@@ -17,9 +17,9 @@ The data with the current fit using the disks in the H band:
 
 
 
-![data-points]({{ site.url }}/assets/imgs/2017-04-03/data-points.png)
+![data-points]({{ site.baseurl }}/assets/imgs/2017-04-03/data-points.png)
 
-![data-with-fit]({{ site.url }}/assets/imgs/2017-04-03/data-with-fit.png)
+![data-with-fit]({{ site.baseurl }}/assets/imgs/2017-04-03/data-with-fit.png)
 
 
 
@@ -27,25 +27,25 @@ To make the mock data we fit two lines. The first was a second degree polynomial
 
 The coefficients for the median function are (0.12389692, -1.54251171, 1.22524334) and for the $84^{th}$ are (-1.89426097, 1.67573137). With the mock data we have the following graph:
 
-![data-with-mock]({{ site.url }}/assets/imgs/2017-04-03/data-with-mock.png)
+![data-with-mock]({{ site.baseurl }}/assets/imgs/2017-04-03/data-with-mock.png)
 
 The new fitted function looks like this:
 
-![data-with-mock-fit]({{ site.url }}/assets/imgs/2017-04-03/data-with-mock-fit.png)
+![data-with-mock-fit]({{ site.baseurl }}/assets/imgs/2017-04-03/data-with-mock-fit.png)
 
 And at the same zoom:
 
-![data-with-mock-fit]({{ site.url }}/assets/imgs/2017-04-03/data-with-mock-fit-same-dim.png)
+![data-with-mock-fit]({{ site.baseurl }}/assets/imgs/2017-04-03/data-with-mock-fit-same-dim.png)
 
 This looks much better for disks here is a generated image:
 
-![sample-image]({{ site.url }}/assets/imgs/2017-04-03/sample-image.png)
-![fit-with-sample]({{ site.url }}/assets/imgs/2017-04-03/fit-with-sample.png)
+![sample-image]({{ site.baseurl }}/assets/imgs/2017-04-03/sample-image.png)
+![fit-with-sample]({{ site.baseurl }}/assets/imgs/2017-04-03/fit-with-sample.png)
 
 The recovered mean:
 
-![recovered-mean]({{ site.url }}/assets/imgs/2017-04-03/recovered-mean.png)
+![recovered-mean]({{ site.baseurl }}/assets/imgs/2017-04-03/recovered-mean.png)
 
 Samples from the fitted process:
 
-![samples]({{ site.url }}/assets/imgs/2017-04-03/samples.png)
+![samples]({{ site.baseurl }}/assets/imgs/2017-04-03/samples.png)

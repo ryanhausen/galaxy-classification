@@ -73,27 +73,27 @@ This is the set of data that we have set aside from the data set to examine the 
 
 First, a histogram showing how agreement is distributed in the test set:
 
-![graph]({{ site.url }}/assets/imgs/2017-02-15/test-set-agreement.png)
+![graph]({{ site.baseurl }}/assets/imgs/2017-02-15/test-set-agreement.png)
 
 Note that  a significant amount of our examples have an agreement of 1. This indicates a one-hot vector label, where one class gets 100% of the vote and all other classes are 0. There is another prominent section around .6. A couple common label distributions have values near here. A 50/50 label split has an agreement of ~0.57 and a 66/33 label split  has an agreement of ~.60. So it makes sense for their to be a higher value in that area
 
 Next, a histogram showing how the difference between the top 2 labels in each example in the test set:
 
-![graph]({{ site.url }}/assets/imgs/2017-02-15/test-set-top2-diff.png)
+![graph]({{ site.baseurl }}/assets/imgs/2017-02-15/test-set-top2-diff.png)
 
 The amount of examples at 1 in this graph is identical to the number of examples that are 1 in the previous graph. This makes sense because if the difference between the top class in a label and the next best class is 1 then the distribution is a one-hot vector, which has an agreement of 1. There are a couple other noticeable columns in this graph. First 0 has quite a few values and it represents all of the sources that have top classes that are tied, examples of this are 50/50, 33/33/33, 25/25/25/25. The other large column is around .33 which can commonly be 66/33 . 
 
 ## Model Results
 
-![graph]({{ site.url }}/assets/imgs/2017-02-15/model-accuracy-epochs.png)
+![graph]({{ site.baseurl }}/assets/imgs/2017-02-15/model-accuracy-epochs.png)
 
 There is an interesting behavior seen here. The top-1 and top-2  accuracy stay fairly stable  with what appears to a be a slight positive slope after epoch ~20. However the per class accuracy has a huge amount of variance over time.
 
-![graph]({{ site.url }}/assets/imgs/2017-02-15/model-accuracy-agreement.png)
+![graph]({{ site.baseurl }}/assets/imgs/2017-02-15/model-accuracy-agreement.png)
 
 Here we see that the models accuracy as function of the agreement in the test set. The model's accuracy improves as agreement on the class improves. This makes sense, but agreement favors classes with a strong single class classification. So this doesn't realistically represent our success with bi-class examples.
 
-![graph]({{ site.url }}/assets/imgs/2017-02-15/model-accuracy-top2-diff.png)
+![graph]({{ site.baseurl }}/assets/imgs/2017-02-15/model-accuracy-top2-diff.png)
 
 This graph is slightly more interesting and tells us more about how were doing with multi-class labels. But doesn't tell us how we are doing on examples that have three or more label classes 33/33/33 or 25/25/25/25. 
 

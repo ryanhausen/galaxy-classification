@@ -9,30 +9,30 @@ categories: synth-images, gaussian-process
 
 ### Adding Noise The Analytic Graph
 
-![analytic-with-noise]({{ site.url }}/assets/imgs/2017-03-20/analytic-with-noise.png)
+![analytic-with-noise]({{ site.baseurl }}/assets/imgs/2017-03-20/analytic-with-noise.png)
 
 
 ### H Band Spheroid Median plotted with Disk Median
 
-![median-overplot]({{ site.url }}/assets/imgs/2017-03-20/median-overplot.png)
+![median-overplot]({{ site.baseurl }}/assets/imgs/2017-03-20/median-overplot.png)
 
 
 ### Ratio of Bands
 
-![disk-band-ratio]({{ site.url }}/assets/imgs/2017-03-20/disk-band-ratio.png)
+![disk-band-ratio]({{ site.baseurl }}/assets/imgs/2017-03-20/disk-band-ratio.png)
 
-![spheroid-band-ratio]({{ site.url }}/assets/imgs/2017-03-20/spheroid-band-ratio.png)
+![spheroid-band-ratio]({{ site.baseurl }}/assets/imgs/2017-03-20/spheroid-band-ratio.png)
 
 
 ### Fitting with a Gaussian Process
 
 We'll fit using the data from the Disk class in the H-Band which looks like this after we moved the data to log scale:
 
-![disk-h-band]({{ site.url }}/assets/imgs/2017-03-20/disk-h-band.png)
+![disk-h-band]({{ site.baseurl }}/assets/imgs/2017-03-20/disk-h-band.png)
 
 The data is heteroskedastic, we'll remedy that by taking the mean of the difference between the $84^{th}$ percentile and the median.
 
-![disk-h-band-homoskedastic]({{ site.url }}/assets/imgs/2017-03-20/disk-h-band-homoskedastic.png)
+![disk-h-band-homoskedastic]({{ site.baseurl }}/assets/imgs/2017-03-20/disk-h-band-homoskedastic.png)
 
 To fit the Gaussian process we'll use the following kernel function:
 
@@ -76,7 +76,7 @@ For example if we set: $I_0=1$, $R_e=0.24$ $R=4.0$, the scale arcsecond/pixel = 
 
 We get this source and surface birghtness profile in log scale.:
 
-![sample-source]({{ site.url }}/assets/imgs/2017-03-20/sample-source.png)
+![sample-source]({{ site.baseurl }}/assets/imgs/2017-03-20/sample-source.png)
 
 
 

@@ -11,24 +11,24 @@ Here are the graphs that you wanted to see. They seem to agree with the mean tha
 
 ### V BAND
 
-![v]({{ site.url }}/assets/imgs/2017-06-27/v-i.png)
-![v]({{ site.url }}/assets/imgs/2017-06-27/v-r.png)
-![v]({{ site.url }}/assets/imgs/2017-06-27/v-sbp.png)
+![v]({{ site.baseurl }}/assets/imgs/2017-06-27/v-i.png)
+![v]({{ site.baseurl }}/assets/imgs/2017-06-27/v-r.png)
+![v]({{ site.baseurl }}/assets/imgs/2017-06-27/v-sbp.png)
 
 ### Z BAND
 
-![z]({{ site.url }}/assets/imgs/2017-06-27/z-i.png)
-![z]({{ site.url }}/assets/imgs/2017-06-27/z-r.png)
-![z]({{ site.url }}/assets/imgs/2017-06-27/z-sbp.png)
+![z]({{ site.baseurl }}/assets/imgs/2017-06-27/z-i.png)
+![z]({{ site.baseurl }}/assets/imgs/2017-06-27/z-r.png)
+![z]({{ site.baseurl }}/assets/imgs/2017-06-27/z-sbp.png)
 
 ### H BAND
 
-![h]({{ site.url }}/assets/imgs/2017-06-27/h-i.png)
-![h]({{ site.url }}/assets/imgs/2017-06-27/h-r.png)
-![h]({{ site.url }}/assets/imgs/2017-06-27/h-sbp.png)
+![h]({{ site.baseurl }}/assets/imgs/2017-06-27/h-i.png)
+![h]({{ site.baseurl }}/assets/imgs/2017-06-27/h-r.png)
+![h]({{ site.baseurl }}/assets/imgs/2017-06-27/h-sbp.png)
 
 ### J BAND
 
-![j]({{ site.url }}/assets/imgs/2017-06-27/j-i.png)
-![j]({{ site.url }}/assets/imgs/2017-06-27/j-r.png)
-![j]({{ site.url }}/assets/imgs/2017-06-27/j-sbp.png)
+![j]({{ site.baseurl }}/assets/imgs/2017-06-27/j-i.png)
+![j]({{ site.baseurl }}/assets/imgs/2017-06-27/j-r.png)
+![j]({{ site.baseurl }}/assets/imgs/2017-06-27/j-sbp.png)

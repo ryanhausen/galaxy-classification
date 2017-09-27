@@ -12,9 +12,9 @@ categories:
 
 Start with the developed gaussian process method for making a spheroid.
 
-![gp-sample]({{ site.url  }}/assets/imgs/2017-04-24/gp-sample.png)
+![gp-sample]({{ site.baseurl  }}/assets/imgs/2017-04-24/gp-sample.png)
 
-![sph-img]({{ site.url  }}/assets/imgs/2017-04-24/sph-img.png)
+![sph-img]({{ site.baseurl  }}/assets/imgs/2017-04-24/sph-img.png)
 
 To change the spheroid source into a disk source we use a transformation matrix. Our new disk source will have an axis ratio of 0.5. To find the the major and minor axis, solve:
 
@@ -41,7 +41,7 @@ $$
 After applying the affine transformation the disk object looks like this:
 
 
-![disk-img]({{ site.url  }}/assets/imgs/2017-04-24/disk-img.png)
+![disk-img]({{ site.baseurl  }}/assets/imgs/2017-04-24/disk-img.png)
 
 To confirm that the new image has the properties intended, the axis ratio can be measured directly from the image. We intended an axis ratio of 0.5 anf the measured axis ratio is 0.4956688764680927.
 
@@ -49,5 +49,5 @@ To confirm that the new image has the properties intended, the axis ratio can be
 
 I changed the numer of bins to 100 and also set the bounds for the binning to be shared between disks and spheroids for comparison. The new histograms look like this:
 
-![disk-bins]({{ site.url  }}/assets/imgs/2017-04-24/disk-bins.png)
-![sph-bins]({{ site.url  }}/assets/imgs/2017-04-24/sph-bins.png)
+![disk-bins]({{ site.baseurl  }}/assets/imgs/2017-04-24/disk-bins.png)
+![sph-bins]({{ site.baseurl  }}/assets/imgs/2017-04-24/sph-bins.png)
