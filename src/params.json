@@ -1,27 +1,27 @@
 {
-	"batch_size": 110,
+	"batch_size": 220,
 	"train_size": 0.8,
 	"n_classes": 5,
 	"epoch_limit": 100,
-	
+
 	"decay_steps": "",
 	"decay_base": 0.96,
-	"learning_rate_reduce": [110, 140], 
-	"start_learning_rate": 0.1, 
+	"learning_rate_reduce": "",
+	"start_learning_rate": 0.01,
 	"momentum": 0.9,
 	"nesterov": "true",
-	
+
 	"bands": ["v", "z", "h", "j"],
-	"block_config": [3,4,16,8], 
+	"block_config": [2,4,4,8],
 	"2016_update": "true",
 	"global_avg_pool": "true",
-	
+
 	"trans_func": "",
-	
+
 	"band_trans_func": "",
-	"label_noise": 0.01,
-	
-	"model_dir": "../models/",
+	"label_noise": 0.001,
+
+	"model_dir": "../models/res-net.ckpt",
 	"train_progress": "../report/train_progress.csv",
 	"test_progress": "../report/test_progress.csv",
 	"save_progress": "true",

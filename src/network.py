@@ -170,7 +170,7 @@ class SimpleNet:
                     lambda: x)
 
         with tf.variable_scope('conv2'):
-            x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=1, pad='VALID')
+            x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=1, pad='SAME')
             tf.logging.info(f'CONV2:{x.shape.as_list()}')
 
         x = tf.cond(keep_prob > tf.constant(0.0),
@@ -188,9 +188,9 @@ class SimpleNet:
         with tf.variable_scope('max_pool2'):
             x = SimpleNet.max_pool(x)
             tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
-#
+
         with tf.variable_scope('conv3'):
-            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=1, pad='VALID')
+            x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=1, pad='SAME')
             tf.logging.info(f'CONV3:{x.shape.as_list()}')
 
         x = tf.cond(keep_prob > tf.constant(0.0),
@@ -225,6 +225,10 @@ class SimpleNet:
                     lambda: tf.nn.dropout(x, keep_prob),
                     lambda: x)
 
+        with tf.variable_scope('max_pool2'):
+            x = SimpleNet.max_pool(x)
+            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+
 #        if SimpleNet.log_activations:
 #            with tf.name_scope(act):
 #                tf.summary.histogram('conv5', x)
@@ -250,8 +254,6 @@ class SimpleNet:
             x = tf.reshape(x, [-1, x_flat])
 
             tf.logging.info(f'RAWOUT:{x.shape.as_list()}')
-
-
         else:
             x_flat = np.prod(x.get_shape().as_list()[1:])
             x = tf.reshape(x, [-1, x_flat])
@@ -649,9 +651,9 @@ class ResNet:
                     reduce = block_idx == 0
                     first = segment_idx==0
                     if is_large:
-                        x = ResNet.bottleneck(x, reduce, first, is_training)
+                        x = ResNet.bottleneck(x, reduce, first, is_training, reuse)
                     else:
-                        x = ResNet.block(x, reduce, first, is_training)
+                        x = ResNet.block(x, reduce, first, is_training, reuse)
 
         with tf.variable_scope('out', reuse=reuse):
             x = ResNet.global_average_pooling(x)
@@ -685,12 +687,11 @@ class ResNet:
         return x
 
     @staticmethod
-    def bottleneck(x, reduce, first_block, is_training):
+    def bottleneck(x, reduce, first_block, is_training, reuse):
         """
             implements a bottleneck residual block which consists of a
             1x1 convolution -> 3x3 convolution -> 1x1 convolution -> shortcut
         """
-        reuse = None if is_training else True
         in_channels = x.get_shape().as_list()[-1]
 
         shp = lambda t: t.get_shape().as_list()
@@ -723,7 +724,7 @@ class ResNet:
         # 1x1 conv1
         with tf.variable_scope('op1', reuse=reuse):
             k = [1, 1, in_channels, bottleneck_channels]
-            f_x = ResNet.block_op(x, k, 1, 'VALID', is_training)
+            f_x = ResNet.block_op(x, k, 1, 'VALID', is_training, reuse)
 
         tf.logging.debug(f'H(X):{shp(f_x)}')
 
@@ -733,7 +734,7 @@ class ResNet:
                 f_x = tf.pad(f_x, [[0, 0], [1, 1], [1, 1], [0, 0]])
 
             k = [3, 3, bottleneck_channels, bottleneck_channels]
-            f_x = ResNet.block_op(f_x, k, stride, pad, is_training)
+            f_x = ResNet.block_op(f_x, k, stride, pad, is_training, reuse)
 
         tf.logging.debug(f'H(X):{shp(f_x)}')
 
@@ -741,14 +742,15 @@ class ResNet:
         # 1x1 conv3
         with tf.variable_scope('op3', reuse=reuse):
             k = [1, 1, bottleneck_channels, out_channels]
-            f_x = ResNet.block_op(f_x, k, 1, 'VALID', is_training)
+            f_x = ResNet.block_op(f_x, k, 1, 'VALID', is_training, reuse)
 
         tf.logging.debug(f'H(X):{shp(f_x)}')
 
         if reduce:
-            k = [1, 1, in_channels, out_channels]
-            w = tf.get_variable('proj', shape=k, initializer=ResNet.var_init)
-            x = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding='VALID')
+            with tf.variable_scope('reduce_op', reuse=reuse):
+                k = [1, 1, in_channels, out_channels]
+                w = tf.get_variable('proj', shape=k, initializer=ResNet.var_init)
+                x = tf.nn.conv2d(x, w, [1, stride, stride, 1], padding='VALID')
 
 
         tf.logging.debug(f'X+H(X):{shp(f_x)} + {shp(x)}')
@@ -757,13 +759,12 @@ class ResNet:
         return tf.add(x, f_x)
 
     @staticmethod
-    def block(x, reduce, first_block, is_training):
+    def block(x, reduce, first_block, is_training, reuse):
         """
             implements a standard residual block which consists of a
             3x3 convolution -> 3x3 convolution -> shortcut
         """
         in_channels = x.get_shape().as_list()[-1]
-        reuse = None if is_training else True
 
         shp = lambda t: t.get_shape().as_list()
         tf.logging.info('STANDARD:-----------------------')
@@ -784,17 +785,17 @@ class ResNet:
             if reduce and first_block == False:
                 f_x = tf.pad(x, [[0, 0], [1, 1], [1, 1], [0, 0]])
                 k = [3, 3, in_channels, out_channels]
-                f_x = ResNet.block_op(f_x, k, stride, pad, is_training)
+                f_x = ResNet.block_op(f_x, k, stride, pad, is_training, reuse)
             else:
                 k = [3, 3, in_channels, out_channels]
-                f_x = ResNet.block_op(x, k, stride, pad, is_training)
+                f_x = ResNet.block_op(x, k, stride, pad, is_training, reuse)
 
         tf.logging.debug(f'H(X):{shp(f_x)}')
 
         # 3x3 conv2
         with tf.variable_scope('op2', reuse=reuse):
             k = [3, 3, out_channels, out_channels]
-            f_x = ResNet.block_op(f_x, k, 1, 'SAME', is_training)
+            f_x = ResNet.block_op(f_x, k, 1, 'SAME', is_training, reuse)
 
         tf.logging.debug(f'H(X):{shp(f_x)}')
 
@@ -810,7 +811,7 @@ class ResNet:
         return tf.add(x, f_x)
 
     @staticmethod
-    def block_op(x, k, s, pad, is_training):
+    def block_op(x, k, s, pad, is_training, reuse):
         """
             implements the set of operations that accompany each
             convolution. batchnorm -> relu -> conv2d

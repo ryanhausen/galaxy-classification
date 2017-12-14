@@ -6,7 +6,9 @@ import string
 import _pickle as cPickle
 
 
-from network import Resnet, ResNet
+from network import ResNet
+#from resnet import ResNet
+import resnet
 from datahelper import DataHelper
 import evaluate
 
@@ -18,8 +20,6 @@ y = None
 logger = None
 
 def main(config=None):
-
-
     try:
         global params
         global x
@@ -42,14 +42,9 @@ def main(config=None):
         x = tf.placeholder(tf.float32, [None,84,84,channels])
         y = tf.placeholder(tf.float32, [None, params['n_classes']])
 
-#        net = Resnet.get_network(x,
-#                                 params['block_config'],
-#                                 params['train'],
-#                                 params['global_avg_pool'],
-#                                 params['2016_update'])
-
         net = ResNet.build_graph(x, params['block_config'], params['train'])
         eval_net = ResNet.build_graph(x, params['block_config'], False)
+        resnet.print_total_params()
 
         if params['train']:
             _train_network(net, eval_net)
@@ -76,26 +71,23 @@ def _train_network(net, eval_net):
                                                    params['decay_steps'],
                                                    params['decay_base'])
     else:
-        learning_rate = tf.Variable(params['start_learning_rate'])
+        learning_rate = tf.Variable(params['start_learning_rate'], trainable=False)
+    with tf.name_scope('loss'):
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=net, labels=y))
+        optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=params['momentum'])
 
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=net, labels=y))
+        grads = optimizer.compute_gradients(loss)
+        with tf.name_scope('clipping'):
+            grads = [(tf.clip_by_value(grad, -0.5, 0.5), var) for grad, var in grads]
+        update = optimizer.apply_gradients(grads, global_step=iters)
 
-    # find a way tp paramertize the optimizer
-#    optimizer = tf.train.MomentumOptimizer(learning_rate,
-#                                           params['momentum'],
-#                                           params['nesterov'])
-    optimizer = tf.train.AdamOptimizer(learning_rate)
-#    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+    with tf.name_scope('grads'):
+        for grad, var in grads:
+            tf.summary.histogram(f"{var.name.split(':')[0]}", grad)
 
-    optimize = optimizer.minimize(cost, global_step=iters)
-
-#    eval_ops = [evaluate.top_1(eval_net, y),
-#                evaluate.top_2(eval_net, y),
-#                evaluate.cross_entropy(eval_net, y),
-#                evaluate.class_accuracy_part1(eval_net, y)]
-
-    init = tf.global_variables_initializer()
-    saver = tf.train.Saver()
+    with tf.name_scope('weights'):
+        for grad, var in grads:
+            tf.summary.histogram(f"{var.name.split(':')[0]}", var)
 
     learning_rate_reduce = params['learning_rate_reduce']
 
@@ -108,8 +100,18 @@ def _train_network(net, eval_net):
                     bands=params['bands'],
                     transform_func=eval(params['trans_func']) if params['trans_func'] else None)
 
+    with tf.name_scope('metrics'):
+        evaluate.evaluate_tensorboard(eval_net, y)
+    summaries = tf.summary.merge_all()
+
+    init = tf.global_variables_initializer()
+    saver = tf.train.Saver()
+
     with tf.Session() as sess:
         sess.run(init)
+
+        trainWriter = tf.summary.FileWriter('../report/tf-log/train', graph=sess.graph)
+        testWriter = tf.summary.FileWriter('../report/tf-log/test', graph=sess.graph)
 
         for epoch in range(1, params['epoch_limit']+1):
             start = time.time()
@@ -128,7 +130,7 @@ def _train_network(net, eval_net):
             total = len(dh._train_imgs)
             while dh.training:
                 batch_xs, batch_ys = dh.get_next_batch()
-                sess.run(optimize, feed_dict={x:batch_xs, y:batch_ys})
+                sess.run(update, feed_dict={x:batch_xs, y:batch_ys})
 
                 if params['print']:
                     print(f'{round(100 * (dh._idx/total), 2)}% complete', end='\r')
@@ -137,9 +139,8 @@ def _train_network(net, eval_net):
                     if params['print']:
                         tf.logging.info('Evaluating...')
                         evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['train_progress'])
-#                        evals = sess.run(eval_ops, feed_dict={x:batch_xs, y:batch_ys})
-#                        evals[-1] = evaluate.class_accuracy_part2(evals[-1])
-#                        evaluate.save(evals, params[params['train_progress']])
+                        s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
+                        trainWriter.add_summary(s, iters.eval())
 
                     if params['print']:
                         tf.logging.info('Training...')
@@ -149,9 +150,9 @@ def _train_network(net, eval_net):
 
             srcs, batch_xs, batch_ys = dh.get_next_batch(include_ids=True)
             evals = evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['test_progress'])
-#            evals = sess.run(eval_ops, feed_dict={x:batch_xs, y:batch_ys})
-#            evals[-1] = evaluate.class_accuracy_part2(evals[-1])
-#            evaluate.save(evals, params[params['test_progress']])
+            s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
+            testWriter.add_summary(s, iters.eval())
+
 
             if params['save_progress'] and evals[0] > top_result:
                 if params['print']:
