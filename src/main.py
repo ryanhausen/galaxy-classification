@@ -13,6 +13,8 @@ from datahelper import DataHelper
 import evaluate
 
 import tensorflow as tf
+from tensorflow.python.client import timeline
+
 
 params = None
 x = None
@@ -43,7 +45,7 @@ def main(config=None):
         y = tf.placeholder(tf.float32, [None, params['n_classes']])
 
         net = ResNet.build_graph(x, params['block_config'], params['train'])
-        eval_net = ResNet.build_graph(x, params['block_config'], False)
+        eval_net = net# ResNet.build_graph(x, params['block_config'], False)
         resnet.print_total_params()
 
         if params['train']:
@@ -74,20 +76,21 @@ def _train_network(net, eval_net):
         learning_rate = tf.Variable(params['start_learning_rate'], trainable=False)
     with tf.name_scope('loss'):
         loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=net, labels=y))
-        optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=params['momentum'])
+        #optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=params['momentum'])
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
         grads = optimizer.compute_gradients(loss)
-        with tf.name_scope('clipping'):
-            grads = [(tf.clip_by_value(grad, -0.5, 0.5), var) for grad, var in grads]
+        #with tf.name_scope('clipping'):
+        #    grads = [(tf.clip_by_value(grad, -0.5, 0.5), var) for grad, var in grads]
         update = optimizer.apply_gradients(grads, global_step=iters)
 
-    with tf.name_scope('grads'):
-        for grad, var in grads:
-            tf.summary.histogram(f"{var.name.split(':')[0]}", grad)
+    # with tf.name_scope('grads'):
+    #     for grad, var in grads:
+    #         tf.summary.histogram(f"{var.name.split(':')[0]}", grad)
 
-    with tf.name_scope('weights'):
-        for grad, var in grads:
-            tf.summary.histogram(f"{var.name.split(':')[0]}", var)
+    # with tf.name_scope('weights'):
+    #     for grad, var in grads:
+    #         tf.summary.histogram(f"{var.name.split(':')[0]}", var)
 
     learning_rate_reduce = params['learning_rate_reduce']
 
@@ -107,65 +110,60 @@ def _train_network(net, eval_net):
     init = tf.global_variables_initializer()
     saver = tf.train.Saver()
 
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+
+    with tf.Session(config=config) as sess:
         sess.run(init)
 
         trainWriter = tf.summary.FileWriter('../report/tf-log/train', graph=sess.graph)
         testWriter = tf.summary.FileWriter('../report/tf-log/test', graph=sess.graph)
+        # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        # run_metadata = tf.RunMetadata()
+        run_options = None
+        run_metadata = None
 
-        for epoch in range(1, params['epoch_limit']+1):
-            start = time.time()
+        top_result = 0
+        while iters.eval() < params['iter_limit']:
+            current_iter = iters.eval()
 
-            if params['print']:
-                tf.logging.info(f'Epoch:{epoch}')
-
-            if learning_rate_reduce and epoch in learning_rate_reduce:
+            if learning_rate_reduce and current_iter in learning_rate_reduce:
                 sess.run(learning_rate.assign(learning_rate.eval() / 10))
 
             if params['print']:
-                tf.logging.info('Training...')
+                tf.logging.info(f"Training iter:{current_iter}")
 
-            file_writer = tf.summary.FileWriter('./tf-log', sess.graph)
+            batch_xs, batch_ys = dh.get_next_batch(iter_based=True)
+            batch = {x:batch_xs, y:batch_ys}
+            sess.run(update, feed_dict=batch)
 
-            total = len(dh._train_imgs)
-            while dh.training:
-                batch_xs, batch_ys = dh.get_next_batch()
-                sess.run(update, feed_dict={x:batch_xs, y:batch_ys})
-
+            if current_iter%10==0:
                 if params['print']:
-                    print(f'{round(100 * (dh._idx/total), 2)}% complete', end='\r')
+                    tf.logging.info("Evaluating")
+                s = sess.run(summaries, feed_dict=batch)
+                trainWriter.add_summary(s, current_iter)
 
-                if iters.eval() % 10 == 0:
-                    if params['print']:
-                        tf.logging.info('Evaluating...')
-                        evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['train_progress'])
-                        s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
-                        trainWriter.add_summary(s, iters.eval())
-
-                    if params['print']:
-                        tf.logging.info('Training...')
-
-            if params['print']:
-                tf.logging.info('Testing...')
-
-            srcs, batch_xs, batch_ys = dh.get_next_batch(include_ids=True)
-            evals = evaluate.evaluate(sess, eval_net, x, y, batch_xs, batch_ys, params['test_progress'])
-            s = sess.run(summaries, feed_dict={x:batch_xs, y:batch_ys})
-            testWriter.add_summary(s, iters.eval())
-
-
-            if params['save_progress'] and evals[0] > top_result:
+            if current_iter%100==0:
                 if params['print']:
-                    tf.logging.info('Saving checkpoint')
-                saver.save(sess, params['model_dir'], global_step=iters)
-                top_result = evals[0]
+                    tf.logging.info('Testing')
 
-                cPickle.dump(srcs, open('../report/model_out/srcs_{}.p'.format(epoch), 'wb'))
-                cPickle.dump(batch_ys, open('../report/model_out/lbls_{}.p'.format(epoch), 'wb'))
-                cPickle.dump(sess.run(eval_net, feed_dict={x: batch_xs}), open('../report/model_out/preds_{}.p'.format(epoch), 'wb'))
+                batch_xs, batch_ys = dh.get_next_batch(force_test=True)
+                batch[x]=batch_xs; batch[y]=batch_ys
+                s = sess.run(summaries, feed_dict=batch)
+                testWriter.add_summary(s, current_iter)
 
-            if params['print']:
-                tf.logging.info(f'Epoch {epoch} took {(time.time() - start)} seconds')
+                evals = evaluate.evaluate(sess,
+                                          eval_net,
+                                          x, y,
+                                          batch_xs, batch_ys,
+                                          params['test_progress'])
+
+                if params['save_progress'] and evals[0] > top_result:
+                    if params['print']:
+                        tf.logging.info('Saving checkpoint')
+                    saver.save(sess, params['model_dir'], global_step=iters)
+                    top_result = evals[0]
+
 
     # This needs to be printed so that the async trainer can see the result
     if params['rtrn_eval']:

@@ -8,7 +8,7 @@ yellow = lambda s: Fore.YELLOW + s
 green = lambda s: Fore.GREEN + s
 import numpy as np
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 import evaluate
 from network import SimpleNet, SimpleRNN
@@ -16,21 +16,19 @@ from datahelper import DataHelper
 
 tf.logging.set_verbosity('INFO')
 iters = tf.Variable(1, trainable=False, name='iter')
-learning_rate = 1e-3
-batch_size = 50
-iter_limit = 10000
+learning_rate = 1e-8
+batch_size = 125
+iter_limit = 95000
 seed = None
-beta = 2.0
+beta = 0.5
 dropout_keep = -1.0
-restore_file = None#'../models/cnn-rnn-25000.ckpt'
-
-
+restore_file = '../models/cnn-rnn-85000.ckpt'
 
 x = SimpleNet.x
 keep_prob = tf.placeholder(tf.float32)
 
 with tf.variable_scope('cnn'):
-    cnn = SimpleNet.build_cnn(x, keep_prob, global_avg_pooling=True)
+    cnn = SimpleNet.build_cnn(x, keep_prob, raw_out=True)
 
 rnn = SimpleRNN.build_graph(cnn)
 
@@ -46,7 +44,7 @@ with tf.name_scope('loss'):
     for var in tf.trainable_variables():
         if 'w' in var.name:
             tf.add(l2_loss, tf.nn.l2_loss(var))
-    l2_loss = tf.multiply(l2_loss, beta)
+    l2_loss = tf.multiply(l2_loss, beta, name='L2')
 
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=rnn, labels=y))
     loss = tf.add(loss, l2_loss)
@@ -67,13 +65,19 @@ with tf.name_scope('weights'):
 
 init = tf.global_variables_initializer()
 
-scaler = StandardScaler()
+def p_drop(a, p):
+    a[a<np.percentile(a, p)] *= 1e-3
+    return a
+
+
+scaler = MinMaxScaler()
 #scaler = MinMaxScaler(feature_range=(-1, 1))
 valid_img = lambda a: a.sum()>0 and np.isfinite(a).sum()==np.prod(a.shape)
-scale = lambda a: scaler.fit_transform(a.reshape(-1,1)).reshape(84,84).astype(np.float32) if valid_img(a) else a
+scale = lambda a: scaler.fit_transform(a.reshape(-1,1)).reshape(84,84).astype(np.float32)
 mean_subtraction = lambda a: a-a.mean()
+drop_percentile = lambda a, p: p_drop(a,p)
 identity = lambda a: a
-b_trans = lambda a: scale(a)
+b_trans = lambda a: scale(drop_percentile(a, 50)) if valid_img(a) else a
 
 dh = DataHelper(batch_size=batch_size, band_transform_func=b_trans)
 epoch = 1

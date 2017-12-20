@@ -4,14 +4,13 @@ import os
 import math
 import pandas as pd
 import numpy as np
+from itertools import cycle
 from random import shuffle, randint
 from astropy.io import fits
 from copy import deepcopy
 
 
 from PIL import Image
-
-from copy import deepcopy
 
 class DataHelper(object):
     """
@@ -54,13 +53,13 @@ class DataHelper(object):
         if batch_size:
             num_train_examples = int(len(self._imgs_list) * train_size)
 
-            batch_train = num_train_examples % batch_size
-            if batch_train != 0:
-
-                if batch_train > batch_size / 2:
-                    num_train_examples += batch_train
-                else:
-                    num_train_examples -= batch_train
+#            batch_train = num_train_examples % batch_size
+#            if batch_train != 0:
+#
+#                if batch_train > batch_size / 2:
+#                    num_train_examples += batch_train
+#                else:
+#                    num_train_examples -= batch_train
 
                 #msg = 'Batch didnt divide evenly into training examples ' + \
                 #      ' adjusted training size from {} to {}'
@@ -69,11 +68,13 @@ class DataHelper(object):
             # we want to use the same test images every time so they are set
             # aside before the shuffle
             self._train_imgs = self._imgs_list[:num_train_examples]
+            self._build_iters(self._train_imgs, self._lbls)
+
             self._test_imgs = self._imgs_list[num_train_examples:]
 
-            if len(self._train_imgs) % batch_size != 0:
-                err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
-                raise Exception(err.format(batch_size, len(self._train_imgs)))
+#            if len(self._train_imgs) % batch_size != 0:
+#                err = 'Batch size must divide evenly into training. Batch: {} Train size: {}'
+#                raise Exception(err.format(batch_size, len(self._train_imgs)))
 
             if shuffle_train:
                 shuffle(self._train_imgs)
@@ -82,11 +83,47 @@ class DataHelper(object):
         else:
             self.testing = True
 
+    def _build_iters(self, img_file_names, lbls_df):
+
+        self.train_count = 0
+        self.train_iter = cycle(img_file_names)
+
+        self.sph_list, self.sph_iter  = [], None
+        self.dk_list, self.dk_iter  = [], None
+        self.irr_list, self.irr_iter  = [], None
+        self.ps_list, self.ps_iter  = [], None
+        self.unk_list, self.unk_iter  = [], None
+
+        for s in img_file_names:
+            s_id = 'GDS_' + s[:-5]
+            lbl = np.argmax(self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols].values)
+            if lbl==0:
+                self.sph_list.append(s)
+            elif lbl==1:
+                self.dk_list.append(s)
+            elif lbl==2:
+                self.irr_list.append(s)
+            elif lbl==3:
+                self.ps_list.append(s)
+            elif lbl==4:
+                self.unk_list.append(s)
+
+        for coll in [self.sph_list,self.dk_list,self.irr_list,self.ps_list,self.unk_list]:
+            shuffle(coll)
+
+        self.sph_count,self.dk_count,self.irr_count,self.ps_count,self.unk_count = 0,0,0,0,0
+
+        self.sph_iter = cycle(self.sph_list)
+        self.dk_iter = cycle(self.dk_list)
+        self.irr_iter = cycle(self.irr_list)
+        self.ps_iter = cycle(self.ps_list)
+        self.unk_iter = cycle(self.unk_list)
+
+
     def _augment_image(self, img, img_id):
 
         if self._transform_func:
             img = self._transform_func(img)
-
 
         rotation = randint(0,359)
         x_shift = randint(-4,4)
@@ -164,30 +201,88 @@ class DataHelper(object):
 
         return img
 
-    def get_next_batch(self, include_ids=False):
-        if self.training:
-            end_idx = self._idx + self._batch_size
-            sources = self._train_imgs[self._idx:end_idx]
 
-            x = []
-            y = []
+    def img_name_server(self, fair_spread=True):
+
+        if fair_spread:
+            num_classes = 5
+
+            img_names = []
+
+            class_iters = [self.sph_iter,self.dk_iter,self.irr_iter,self.ps_iter,self.unk_iter]
+
+            for i in range(self._batch_size//num_classes):
+                for coll in class_iters:
+                    img_names.append(next(coll))
+
+            # TODO this will favor earlier classes, just choose %5==0 batch sizes
+            for i in range(self._batch_size % num_classes):
+                img_names.append(next(class_iters[i]))
+
+            shuffle(img_names)
+
+        else:
+            img_names = [next(self.train_iter) for i in range(self._batch_size)]
+            self.train_count += self._batch_size
+            if self.train_count > len(self._train_imgs):
+                self.train_count = 0
+                shuffle(self._train_imgs)
+                self.train_iter = cycle(self._train_imgs)
+
+        return img_names
+
+    def get_next_batch(self,
+                       include_ids=False,
+                       iter_based=False,
+                       force_test=False,
+                       split_channels=False):
+        if self.training and force_test==False:
+            x, y = [], []
+
+            if iter_based:
+                sources = self.img_name_server(fair_spread=False)
+
+            else:
+                end_idx = self._idx + self._batch_size
+                sources = self._train_imgs[self._idx:end_idx]
+
+                if end_idx >= len(self._train_imgs):
+                    self.training = False
+                    self.testing = True
+                    self._idx = 0
+                else:
+                    self._idx = end_idx
+
 
             for s in sources:
                 s_id = s[:-5]
                 x_dir = os.path.join(self._imgs_dir,s)
 
-                x_tmp =  fits.getdata(x_dir)
+                try:
+                    x_tmp = self._get_fits(x_dir, normalize=False)
+                except Exception as e:
+                    print(f'ERROR with {x_dir}')
+                    raise e
 
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)
 
-                x.append(x_tmp.copy())
+                if split_channels:
+                    x.extend([x_tmp[:,:,i].reshape([84,84,1]) for i in range(x_tmp.shape[2])])
+                else:
+                    x.append(x_tmp.copy())
+
                 del x_tmp
 
                 # for the labels we need to prefix GDS_
                 s_id = 'GDS_' + s[:-5]
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
                 lbl = lbl.values.reshape(self._num_classes)
+
+
+#                _tmp = np.zeros_like(lbl)
+#                _tmp[lbl.argmax()] = 1.0
+#                lbl = _tmp
 
                 if self._label_noise:
                     lbl_noise = np.random.normal(scale=self._label_noise,
@@ -201,23 +296,11 @@ class DataHelper(object):
             x = np.array(x)
             y = np.array(y)
 
-            if end_idx >= len(self._train_imgs):
-                self.training = False
-                self.testing = True
-                self._idx = 0
-            else:
-                self._idx = end_idx
-
             if include_ids:
                 return (sources, x, y)
             else:
                 return (x, y)
         else:
-            # reset the training flags
-            self.training = True
-            self.testing = False
-            self._idx = 0
-
             sources = self._test_imgs[:]
             bands = ['h','j','v','z']
 
@@ -227,7 +310,11 @@ class DataHelper(object):
             for s in sources:
                 x_dir = os.path.join(self._imgs_dir,s)
 
-                raw = fits.getdata(x_dir)
+                try:
+                    raw =  self._get_fits(x_dir, normalize=False)
+                except Exception as e:
+                    print(f'ERROR with {x_dir}')
+                    raise e
 
                 if self._drop_band:
                     tmp = []
@@ -235,12 +322,22 @@ class DataHelper(object):
                         if bands[i] in self._bands:
                             tmp.append(raw[:,:,i])
 
-                    raw = np.dstack(tmp)
+                    x_tmp = np.dstack(tmp)
+                else:
+                    x_tmp = deepcopy(raw)
 
-                # to avoid os errors copy to a new mem location and
-                # remove the file handle
-                x.append(deepcopy(raw))
                 del raw
+
+
+                if self._band_transform_func:
+                    for i in range(x_tmp.shape[2]):
+                        x_tmp[:,:,i] = self._band_transform_func(x_tmp[:,:,i])
+
+                if split_channels:
+                    x.extend([x_tmp[:,:,i].reshape([84,84,1]) for i in range(x_tmp.shape[2])])
+                else:
+                    x.append(x_tmp.copy())
+
 
                 s_id = 'GDS_' + s[:-5]
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
@@ -248,6 +345,10 @@ class DataHelper(object):
 
             x = np.array(x)
             y = np.array(y)
+
+            self.training = True
+            self.testing = False
+            self._idx = 0
 
             if include_ids:
                 return (sources, x, y)
@@ -277,7 +378,7 @@ class DataHelper(object):
 
         return (cls_count_train, cls_count_test)
 
-    def get_next_example(self, img_id=None):
+    def get_next_example(self, img_id=None, split_channels=False):
         bands = ['h','j','v','z']
 
         source = None
@@ -298,14 +399,33 @@ class DataHelper(object):
             if bands[i] in self._bands:
                 tmp_x.append(x[:,:,i])
 
-        x = np.dstack(tmp_x).reshape(1,84,84,len(self._bands))
+        x = np.dstack(tmp_x)
 
+        if split_channels:
+            x = np.array([x[:,:,i].reshape([84,84,1]) for i in range(x.shape[2])])
+        else:
+            x = x.reshape(1,84,84,len(self._bands))
+
+
+        print(x.shape)
 
         y = self._lbls.loc[self._lbls['ID']=='GDS_'+ source[:-5], self._lbl_cols]
         y = y.values.reshape(self._num_classes)
 
         return (x,y)
 
+
+
+
+    def _get_fits(self, img_path, normalize=False):
+        tmp = fits.getdata(img_path)
+
+        if normalize:
+            for i in range(tmp.shape[-1]):
+                x = tmp[:,:,i]
+                tmp[:,:,i] = (x-np.min(x))/(np.max(x)-np.min(x))
+
+        return tmp
 
     # Helper
     @staticmethod

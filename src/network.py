@@ -658,8 +658,6 @@ class ResNet:
         with tf.variable_scope('out', reuse=reuse):
             x = ResNet.global_average_pooling(x)
 
-        ResNet.print_total_params()
-
         if is_training:
             return x
         else:

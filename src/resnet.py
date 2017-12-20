@@ -5,8 +5,6 @@ import resnet_model as tf_model
 # https://arxiv.org/abs/1603.05027
 # https://github.com/tensorflow/models/blob/master/official/resnet/resnet_model.py
 class ResNet:
-
-
     @staticmethod
     def build_graph(x, block_config, is_training, data_format='channels_first'):
         reuse = not is_training
@@ -65,3 +63,4 @@ def print_total_params():
             variable_parametes *= dim.value
         total_parameters += variable_parametes
     tf.logging.info(f'TOTAL NUMBER OF PARAMTERS:{total_parameters}')
+    tf.logging.info(f'Memory Estimate:{total_parameters*32/8/1024/1024} MB')
