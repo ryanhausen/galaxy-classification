@@ -53,6 +53,15 @@ def extract_from_table2(path_to_file, save_new_file=None):
     tbl2['total'] = tbl2['ClSph'] + tbl2['ClDk'] + tbl2['ClIr']\
                     + tbl2['ClPS'] + tbl2['ClUn']
 
+    total = len(tbl2)
+    for i in range(total):
+        vals = tbl2.iloc[i,2:].values
+        while (vals>0).sum() > 2:
+            vals[vals==vals.min()]=0.0
+            
+        tbl2.iloc[i,2:] = vals
+
+
     for col in morph_cols[2:]:
         tbl2[col] /= tbl2['total']
         

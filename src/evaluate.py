@@ -22,6 +22,24 @@ def rmse(yh, ys):
 def cross_entropy(yh, ys):
     return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=yh, labels=ys), name='CROSS-ENTROPY')
 
+def weighted_cross_entropy(yh, ys):
+    loss_weights = tf.reduce_max(ys, axis=1)
+    return tf.losses.softmax_cross_entropy(ys,
+                                           yh,
+                                           weights=loss_weights,
+                                           reduction=tf.losses.Reduction.MEAN)
+
+def _entropy(ys):
+    log_y = tf.log(ys)
+    mask = tf.logical_or(tf.is_inf(log_y), tf.is_nan(log_y))
+    log_y = tf.where(mask, tf.zeros_like(ys), log_y)
+
+    return tf.reduce_sum(tf.multiply(-1.0, tf.multiply(ys, log_y)))
+
+def accuracy_by_agreement(yh, ys, agreement_bounds):
+    None
+
+
 def class_accuracy_part1(yh,ys):
     return tf.argmax(ys, 1), tf.to_float(tf.nn.in_top_k(yh,tf.argmax(ys, 1),1))
 
@@ -103,6 +121,7 @@ def evaluate_tensorboard(logit_y,ys):
     tf.summary.scalar('top_1', top_1(yh, ys))
     tf.summary.scalar('top_2', top_2(yh, ys))
     tf.summary.scalar('cross_entropy', cross_entropy(logit_y, ys))
+    tf.summary.scalar('weighted_cross_entropy', weighted_cross_entropy(logit_y, ys))
     tf.summary.scalar('Spheroid', single_class_accuracy(yh,ys,0))
     tf.summary.scalar('Disk', single_class_accuracy(yh,ys,1))
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))

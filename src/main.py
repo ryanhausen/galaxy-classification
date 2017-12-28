@@ -75,13 +75,22 @@ def _train_network(net, eval_net):
     else:
         learning_rate = tf.Variable(params['start_learning_rate'], trainable=False)
     with tf.name_scope('loss'):
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=net, labels=y))
+        #loss_weights =  1.003 - tf.reduce_max(y, axis=1)
+
+        loss = tf.losses.softmax_cross_entropy(y,
+                                               net,
+                                               weights=1.0,
+                                               reduction=tf.losses.Reduction.MEAN)
+        #loss = tf.nn.softmax_cross_entropy_with_logits(logits=net,
+        #                                               labels=y,
+        #                                               weights=loss_weights,
+        #                                               reduction=tf.losses.Reduction.MEAN)
         #optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=params['momentum'])
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
         grads = optimizer.compute_gradients(loss)
-        #with tf.name_scope('clipping'):
-        #    grads = [(tf.clip_by_value(grad, -0.5, 0.5), var) for grad, var in grads]
+        with tf.name_scope('clipping'):
+            grads = [(tf.clip_by_value(grad, -1.5, 1.5), var) for grad, var in grads]
         update = optimizer.apply_gradients(grads, global_step=iters)
 
     # with tf.name_scope('grads'):
@@ -206,8 +215,6 @@ def _type_convert(dictionary):
             else:
                 vals = [str(v) for v in vals]
 
-
-
             dictionary[k] = vals
         elif type(dictionary[k]) == str:
             is_num = False
@@ -241,56 +248,3 @@ if __name__ == '__main__':
             tmp = None
 
     main(args)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
