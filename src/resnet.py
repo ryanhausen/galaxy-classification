@@ -10,7 +10,7 @@ class ResNet:
         reuse = not is_training
         is_large = sum(block_config) * 2 >= 50
         block_f = tf_model.bottleneck_block if is_large else tf_model.building_block
-        num_filters = 64
+        num_filters = 32
 
         if data_format=='channels_first':
             x = tf.transpose(x, [0, 3, 1, 2])
@@ -19,7 +19,7 @@ class ResNet:
         with tf.variable_scope('initial_conv', reuse=reuse):
             x = tf_model.conv2d_fixed_padding(inputs=x,
                                             filters=num_filters,
-                                            kernel_size=7,
+                                            kernel_size=5,
                                             strides=2,
                                             data_format=data_format)
 
@@ -40,12 +40,18 @@ class ResNet:
         with tf.variable_scope('out_bn', reuse=reuse):
             x = tf_model.batch_norm_relu(x, is_training, data_format)
 
-        with tf.variable_scope('global_avg_pooling', reuse=reuse):
-            x = tf.layers.conv2d(x,
-                                 filters=5,
-                                 kernel_size=[1, 1],
-                                 data_format=data_format)
+        # with tf.variable_scope('global_avg_pooling', reuse=reuse):
+        #     x = tf.layers.conv2d(x,
+        #                          filters=5,
+        #                          kernel_size=[1, 1],
+        #                          data_format=data_format)
+        #     x = tf.reduce_mean(x, axis=[2, 3])
+
+        with tf.variable_scope('average_pool'):
             x = tf.reduce_mean(x, axis=[2, 3])
+
+        with tf.variable_scope('fc_out'):
+            x = tf.layers.dense(x, 5)
 
         return x
 

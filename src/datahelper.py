@@ -125,6 +125,8 @@ class DataHelper(object):
         if self._transform_func:
             img = self._transform_func(img)
 
+        move = img.shape[0]//2
+
         rotation = randint(0,359)
         x_shift = randint(-4,4)
         y_shift = randint(-4,4)
@@ -132,14 +134,15 @@ class DataHelper(object):
         scale = math.exp(np.random.uniform(np.log(1.0 / 1.3), np.log(1.3)))
         brightness = np.random.normal(loc=0.0,scale=0.01)
 
-        to_origin = DataHelper._translate(42,42)
+        to_origin = DataHelper._translate(move,move)
         flipped = DataHelper._flip(randint(0,1)) if flip else np.identity(3)
         scaled = DataHelper._scale(scale)
         rotated = DataHelper._rotate(rotation)
         shifted = DataHelper._translate(x_shift, y_shift)
-        recenter = DataHelper._translate(-42,-42)
+        recenter = DataHelper._translate(-move,-move)
 
-        trans = to_origin.dot(flipped).dot(scaled).dot(rotated).dot(shifted).dot(recenter)
+        #trans = to_origin.dot(flipped).dot(scaled).dot(rotated).dot(shifted).dot(recenter)
+        trans = to_origin.dot(flipped).dot(scaled).dot(rotated).dot(recenter)
         trans = tuple(trans.flatten()[:6])
 
         bands = ['h','j','v','z']
@@ -154,43 +157,42 @@ class DataHelper(object):
 
         for i in range(shp_rng):
             if bands[i] in self._bands:
-                tmp_img = img[:,:,i]
+                tmp_arr = img[:,:,i]
 
                 if self._band_transform_func:
-                    tmp_img = self._band_transform_func(tmp_img)
+                    tmp_arr = self._band_transform_func(tmp_arr)
 
-                tmp_img = Image.fromarray(tmp_img)
+                tmp_img = Image.fromarray(tmp_arr)
 
-                tmp_img = tmp_img.transform((84,84), Image.AFFINE, data=trans, resample=Image.BILINEAR)
+                tmp_img = tmp_img.transform(tmp_arr.shape, Image.AFFINE, data=trans, resample=Image.BILINEAR)
 
-                tmp_img = np.asarray(tmp_img)
-                noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))
+                #noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))
 
-                id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
+                #id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
 
-                try:
-                    rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
-                    noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
-                except Exception:
-                    None
-                    # log this
-                    #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
+                # try:
+                #     rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
+                #     noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
+                # except Exception:
+                #     None
+                #     # log this
+                #     #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
 
-                len_noise = None
-                if bands[i] not in ('h','j'):
-                    noise = noise.flatten()
-                    len_noise = len(noise)-1
+                # len_noise = None
+                # if bands[i] not in ('h','j'):
+                #     noise = noise.flatten()
+                #     len_noise = len(noise)-1
 
-                noise_mask = tmp_img == 0
+                # noise_mask = tmp_img == 0
 
                 cpy_img = deepcopy(np.asarray(tmp_img))
-                for j in range(cpy_img.shape[0]):
-                    for k in range(cpy_img.shape[1]):
-                        if noise_mask[j,k]:
-                            if bands[i] in ('h','j'):
-                                cpy_img[j,k] = noise[j,k]
-                            else:
-                                cpy_img[j,k] = noise[randint(0,len_noise)]
+                # for j in range(cpy_img.shape[0]):
+                #     for k in range(cpy_img.shape[1]):
+                #         if noise_mask[j,k]:
+                #             if bands[i] in ('h','j'):
+                #                 cpy_img[j,k] = noise[j,k]
+                #             else:
+                #                 cpy_img[j,k] = noise[randint(0,len_noise)]
 
                 tmp.append(cpy_img)
 
@@ -236,6 +238,8 @@ class DataHelper(object):
                        iter_based=False,
                        force_test=False,
                        split_channels=False):
+        CROP = 30
+
         if self.training and force_test==False:
             x, y = [], []
 
@@ -263,6 +267,9 @@ class DataHelper(object):
                 except Exception as e:
                     print(f'ERROR with {x_dir}')
                     raise e
+
+                cx, cy = np.random.randint(35, 45, size=2)
+                x_tmp = x_tmp[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
 
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)
@@ -315,6 +322,10 @@ class DataHelper(object):
                 except Exception as e:
                     print(f'ERROR with {x_dir}')
                     raise e
+
+                cx, cy = 42, 42
+                raw = raw[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
+
 
                 if self._drop_band:
                     tmp = []

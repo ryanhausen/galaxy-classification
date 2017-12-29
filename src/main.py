@@ -41,7 +41,7 @@ def main(config=None):
 
         channels = len(params['bands'])
 
-        x = tf.placeholder(tf.float32, [None,84,84,channels])
+        x = tf.placeholder(tf.float32, [None,60,60,channels])
         y = tf.placeholder(tf.float32, [None, params['n_classes']])
 
         net = ResNet.build_graph(x, params['block_config'], params['train'])

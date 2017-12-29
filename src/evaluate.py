@@ -5,6 +5,7 @@ Created on Thu Nov  3 12:50:28 2016
 @author: ryanhausen
 """
 import tensorflow as tf
+import numpy as np
 
 import io
 import matplotlib.pyplot as plt
@@ -29,16 +30,27 @@ def weighted_cross_entropy(yh, ys):
                                            weights=loss_weights,
                                            reduction=tf.losses.Reduction.MEAN)
 
-def _entropy(ys):
+def entropy(ys):
     log_y = tf.log(ys)
     mask = tf.logical_or(tf.is_inf(log_y), tf.is_nan(log_y))
     log_y = tf.where(mask, tf.zeros_like(ys), log_y)
 
     return tf.reduce_sum(tf.multiply(-1.0, tf.multiply(ys, log_y)))
 
-def accuracy_by_agreement(yh, ys, agreement_bounds):
-    None
+def agreement(ys):
+    return 1 - (entropy(ys) / tf.log(5))
 
+def accuracy_by_agreement(yh, ys, agreement_bounds):
+    agr = argeement(ys)
+    acc = top_1(yh, ys)
+
+    bottom = tf.greater(agr, agreement_bounds[0])
+    top  = tf.less_equal(agr, agreement_bounds[1])
+
+    mask = tf.logical_and(bottom, top)
+    mask = tf.cast(mask, tf.float32)
+
+    return tf.reduce_mean(tf.multiply(mask, acc), name="ACC-BY-AGR")
 
 def class_accuracy_part1(yh,ys):
     return tf.argmax(ys, 1), tf.to_float(tf.nn.in_top_k(yh,tf.argmax(ys, 1),1))
@@ -127,6 +139,10 @@ def evaluate_tensorboard(logit_y,ys):
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))
     tf.summary.scalar('Point_Source', single_class_accuracy(yh,ys,3))
     tf.summary.scalar('Unknown', single_class_accuracy(yh,ys,4))
+
+    bounds = np.linspace(0, 1, 11)
+    for b in zip(bounds[:-1], bounds[1:]):
+        tf.summary.scalar(f'Acc_Agr_{b[0]}_{b[1]}', accuracy_by_agreement(yh, ys))
 
     c_ys = tf.argmax(ys, 1)
     c_yh = tf.argmax(yh, 1)

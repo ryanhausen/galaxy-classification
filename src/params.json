@@ -1,5 +1,5 @@
 {
-	"batch_size": 50,
+	"batch_size": 125,
 	"train_size": 0.8,
 	"n_classes": 5,
 	"epoch_limit": 100,
@@ -8,12 +8,12 @@
 	"decay_steps": "",
 	"decay_base": 0.96,
 	"learning_rate_reduce": [15000],
-	"start_learning_rate": 0.01,
+	"start_learning_rate": 0.001,
 	"momentum": 0.9,
 	"nesterov": "true",
 
 	"bands": ["v", "z", "h", "j"],
-	"block_config": [3,4,23,3],
+	"block_config": [3,6,18,6],
 	"2016_update": "true",
 	"global_avg_pool": "true",
 
