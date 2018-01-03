@@ -41,11 +41,11 @@ def main(config=None):
 
         channels = len(params['bands'])
 
-        x = tf.placeholder(tf.float32, [None,60,60,channels])
+        x = tf.placeholder(tf.float32, [None,40,40,1])
         y = tf.placeholder(tf.float32, [None, params['n_classes']])
 
         net = ResNet.build_graph(x, params['block_config'], params['train'])
-        eval_net = net# ResNet.build_graph(x, params['block_config'], False)
+        eval_net = ResNet.build_graph(x, params['block_config'], False)
         resnet.print_total_params()
 
         if params['train']:

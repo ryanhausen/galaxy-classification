@@ -10,7 +10,7 @@ class ResNet:
         reuse = not is_training
         is_large = sum(block_config) * 2 >= 50
         block_f = tf_model.bottleneck_block if is_large else tf_model.building_block
-        num_filters = 32
+        num_filters = 64
 
         if data_format=='channels_first':
             x = tf.transpose(x, [0, 3, 1, 2])

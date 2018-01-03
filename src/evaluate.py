@@ -38,10 +38,10 @@ def entropy(ys):
     return tf.reduce_sum(tf.multiply(-1.0, tf.multiply(ys, log_y)))
 
 def agreement(ys):
-    return 1 - (entropy(ys) / tf.log(5))
+    return 1 - (entropy(ys) / tf.log(5.0))
 
 def accuracy_by_agreement(yh, ys, agreement_bounds):
-    agr = argeement(ys)
+    agr = agreement(ys)
     acc = top_1(yh, ys)
 
     bottom = tf.greater(agr, agreement_bounds[0])
@@ -140,9 +140,10 @@ def evaluate_tensorboard(logit_y,ys):
     tf.summary.scalar('Point_Source', single_class_accuracy(yh,ys,3))
     tf.summary.scalar('Unknown', single_class_accuracy(yh,ys,4))
 
-    bounds = np.linspace(0, 1, 11)
-    for b in zip(bounds[:-1], bounds[1:]):
-        tf.summary.scalar(f'Acc_Agr_{b[0]}_{b[1]}', accuracy_by_agreement(yh, ys))
+    # bounds = np.linspace(0, 1, 11)
+    # for b in zip(bounds[:-1], bounds[1:]):
+    #     bot, top = np.round(b[0], decimals=1), np.round(b[1], decimals=1)
+    #     tf.summary.scalar(f'Acc_Agr_{bot}_{top}', accuracy_by_agreement(yh, ys, b))
 
     c_ys = tf.argmax(ys, 1)
     c_yh = tf.argmax(yh, 1)

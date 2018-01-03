@@ -38,7 +38,7 @@ class DataHelper(object):
         self._bands = bands
         self._transform_func = transform_func
         self._band_transform_func = band_transform_func
-        self._drop_band = len(bands) < 4
+        self._drop_band = False#len(bands) < 4
         self._imgs_dir = os.path.join(data_dir, 'imgs')
         self._imgs_list = os.listdir(self._imgs_dir)
         self._lbls = pd.read_csv(os.path.join(data_dir,'labels/labels.csv'))
@@ -118,6 +118,12 @@ class DataHelper(object):
         self.irr_iter = cycle(self.irr_list)
         self.ps_iter = cycle(self.ps_list)
         self.unk_iter = cycle(self.unk_list)
+
+    #https://www.tensorflow.org/api_docs/python/tf/image/per_image_standardization
+    @staticmethod
+    def pre_process(img):
+        img = (img - img.mean()) / max(img.std(), 1/np.sqrt(np.prod(img.shape)))
+        return np.sum(img, axis=2)[:,:,np.newaxis]
 
 
     def _augment_image(self, img, img_id):
@@ -238,7 +244,7 @@ class DataHelper(object):
                        iter_based=False,
                        force_test=False,
                        split_channels=False):
-        CROP = 30
+        CROP = 20
 
         if self.training and force_test==False:
             x, y = [], []
@@ -270,6 +276,8 @@ class DataHelper(object):
 
                 cx, cy = np.random.randint(35, 45, size=2)
                 x_tmp = x_tmp[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
+
+                x_tmp = DataHelper.pre_process(x_tmp)
 
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)
@@ -326,6 +334,7 @@ class DataHelper(object):
                 cx, cy = 42, 42
                 raw = raw[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
 
+                raw = DataHelper.pre_process(raw)
 
                 if self._drop_band:
                     tmp = []
