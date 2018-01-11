@@ -1,14 +1,14 @@
 {
-	"batch_size": 250,
+	"batch_size": 50,
 	"train_size": 0.8,
 	"n_classes": 5,
 	"epoch_limit": 100,
-	"iter_limit": 8000,
+	"iter_limit": 40000,
 
 	"decay_steps": "",
 	"decay_base": 0.96,
-	"learning_rate_reduce": [4000,8000],
-	"start_learning_rate": 0.01,
+	"learning_rate_reduce": [5000,10000,20000],
+	"start_learning_rate": 0.00001,
 	"momentum": 0.9,
 	"nesterov": "true",
 
@@ -22,9 +22,12 @@
 	"band_trans_func": "",
 	"label_noise": "",
 
-	"model_dir": "../models/res-net.ckpt",
-	"train_progress": "../report/train_progress.csv",
+	"model_dir": "../models",
 	"test_progress": "../report/test_progress.csv",
+	"tf_train_dir":"../report/tf-log/train",
+	"tf_test_dir":"../report/tf-log/test",
+
+
 	"save_progress": "true",
 	"train": "true",
 	"restore": "false",

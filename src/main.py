@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import time
@@ -6,7 +7,7 @@ import string
 import _pickle as cPickle
 
 
-from network import ResNet
+from network import ResNet, SimpleNet
 #from resnet import ResNet
 import resnet
 from datahelper import DataHelper
@@ -44,8 +45,9 @@ def main(config=None):
         x = tf.placeholder(tf.float32, [None,40,40,1])
         y = tf.placeholder(tf.float32, [None, params['n_classes']])
 
-        net = ResNet.build_graph(x, params['block_config'], params['train'])
-        eval_net = ResNet.build_graph(x, params['block_config'], False)
+        net = SimpleNet.build_cnn(x, 0.0, global_avg_pooling=True)
+        eval_net = net
+        #eval_net = ResNet.build_graph(x, params['block_config'], False)
         resnet.print_total_params()
 
         if params['train']:
@@ -76,6 +78,9 @@ def _train_network(net, eval_net):
         learning_rate = tf.Variable(params['start_learning_rate'], trainable=False)
     with tf.name_scope('loss'):
         #loss_weights =  1.003 - tf.reduce_max(y, axis=1)
+
+        kl = lambda p, q: tf.losses.softmax_cross_entropy(p, q, reduction=tf.losses.Reduction.MEAN)
+        hs_kl = lambda p, q: tf.multiply(0.5, tf.square(kl(p, q)))
 
         loss = tf.losses.softmax_cross_entropy(y,
                                                net,
@@ -123,10 +128,13 @@ def _train_network(net, eval_net):
     config.gpu_options.allow_growth = True
 
     with tf.Session(config=config) as sess:
-        sess.run(init)
+        if params['restore']:
+            saver.restore(sess, tf.train.latest_checkpoint(params['model_dir']))
+        else:
+            sess.run(init)
 
-        trainWriter = tf.summary.FileWriter('../report/tf-log/train', graph=sess.graph)
-        testWriter = tf.summary.FileWriter('../report/tf-log/test', graph=sess.graph)
+        trainWriter = tf.summary.FileWriter(params['tf_train_dir'], graph=sess.graph)
+        testWriter = tf.summary.FileWriter(params['tf_test_dir'], graph=sess.graph)
         # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         # run_metadata = tf.RunMetadata()
         run_options = None
@@ -170,7 +178,8 @@ def _train_network(net, eval_net):
                 if params['save_progress'] and evals[0] > top_result:
                     if params['print']:
                         tf.logging.info('Saving checkpoint')
-                    saver.save(sess, params['model_dir'], global_step=iters)
+                    model_path = os.path.join(params['model_dir'], 'res-net.ckpt')
+                    saver.save(sess, model_path, global_step=iters)
                     top_result = evals[0]
 
 

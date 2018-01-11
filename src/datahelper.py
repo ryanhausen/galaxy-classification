@@ -123,7 +123,7 @@ class DataHelper(object):
     @staticmethod
     def pre_process(img):
         img = (img - img.mean()) / max(img.std(), 1/np.sqrt(np.prod(img.shape)))
-        return np.sum(img, axis=2)[:,:,np.newaxis]
+        return np.mean(img, axis=2)[:,:,np.newaxis]
 
 
     def _augment_image(self, img, img_id):
@@ -172,33 +172,32 @@ class DataHelper(object):
 
                 tmp_img = tmp_img.transform(tmp_arr.shape, Image.AFFINE, data=trans, resample=Image.BILINEAR)
 
-                #noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))
+                noise = fits.getdata('../data/noise/{}.fits'.format(bands[i]))
 
-                #id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
+                id_mask = (self._noise_tbl['ID']==img_id) & (self._noise_tbl['band']==bands[i])
 
-                # try:
-                #     rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
-                #     noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
-                # except Exception:
-                #     None
-                #     # log this
-                #     #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
+                try:
+                    rng = tuple(self._noise_tbl.loc[id_mask, ['mn', 'mx']].values[0])
+                    noise = self._scale_to(noise, rng, (np.min(noise), np.max(noise)))
+                except Exception:
+                    None
+                     # log this
+                     #print 'unable to rescale noise for {}, {} likely there is no noise rescale from'.format(img_id, bands[i])
 
-                # len_noise = None
-                # if bands[i] not in ('h','j'):
-                #     noise = noise.flatten()
-                #     len_noise = len(noise)-1
-
-                # noise_mask = tmp_img == 0
-
+                len_noise = None
+                if bands[i] not in ('h','j'):
+                    noise = noise.flatten()
+                    len_noise = len(noise)-1
+                    
                 cpy_img = deepcopy(np.asarray(tmp_img))
-                # for j in range(cpy_img.shape[0]):
-                #     for k in range(cpy_img.shape[1]):
-                #         if noise_mask[j,k]:
-                #             if bands[i] in ('h','j'):
-                #                 cpy_img[j,k] = noise[j,k]
-                #             else:
-                #                 cpy_img[j,k] = noise[randint(0,len_noise)]
+                noise_mask = cpy_img == 0
+                for j in range(cpy_img.shape[0]):
+                    for k in range(cpy_img.shape[1]):
+                        if noise_mask[j,k]:
+                            if bands[i] in ('h','j'):
+                                cpy_img[j,k] = noise[j,k]
+                            else:
+                                cpy_img[j,k] = noise[randint(0,len_noise)]
 
                 tmp.append(cpy_img)
 

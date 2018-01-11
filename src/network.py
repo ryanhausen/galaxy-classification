@@ -96,11 +96,11 @@ class SimpleNet:
 
     @staticmethod
     def c1w_shape():
-        return [3,3,1,1]
+        return [3,3,1,8]
 
     @staticmethod
     def c2w_shape():
-        return [3,3,1,8]
+        return [3,3,8,8]
 
     @staticmethod
     def c3w_shape():
@@ -138,17 +138,17 @@ class SimpleNet:
 
 
 
-        x = tf.cond(keep_prob > tf.constant(0.0),
-                    lambda: tf.nn.dropout(x, keep_prob),
-                    lambda: x)
+        #x = tf.cond(tf.constant(keep_prob) > tf.constant(0.0),
+        #            lambda: tf.nn.dropout(x, keep_prob),
+        #            lambda: x)
 
         with tf.variable_scope('conv2'):
             x = SimpleNet.conv2d(x, SimpleNet.c2w_shape(), s=1, pad='SAME')
             tf.logging.info(f'CONV2:{x.shape.as_list()}')
 
-        x = tf.cond(keep_prob > tf.constant(0.0),
-                    lambda: tf.nn.dropout(x, keep_prob),
-                    lambda: x)
+        #x = tf.cond(keep_prob > tf.constant(0.0),
+        #            lambda: tf.nn.dropout(x, keep_prob),
+        #            lambda: x)
 
 
         with tf.variable_scope('max_pool2'):
@@ -159,9 +159,9 @@ class SimpleNet:
             x = SimpleNet.conv2d(x, SimpleNet.c3w_shape(), s=1, pad='SAME')
             tf.logging.info(f'CONV3:{x.shape.as_list()}')
 
-        x = tf.cond(keep_prob > tf.constant(0.0),
-                    lambda: tf.nn.dropout(x, keep_prob),
-                    lambda: x)
+        #x = tf.cond(keep_prob > tf.constant(0.0),
+        #            lambda: tf.nn.dropout(x, keep_prob),
+        #            lambda: x)
 
         with tf.variable_scope('max_pool3'):
             x = SimpleNet.max_pool(x)
@@ -173,23 +173,23 @@ class SimpleNet:
             x = SimpleNet.conv2d(x, SimpleNet.c4w_shape(), s=1, pad='VALID')
             tf.logging.info(f'CONV4:{x.shape.as_list()}')
 
-        x = tf.cond(keep_prob > tf.constant(0.0),
-                    lambda: tf.nn.dropout(x, keep_prob),
-                    lambda: x)
+        #x = tf.cond(keep_prob > tf.constant(0.0),
+        #            lambda: tf.nn.dropout(x, keep_prob),
+        #            lambda: x)
 
 
 
-        with tf.variable_scope('conv5'):
-            x = SimpleNet.conv2d(x, SimpleNet.c5w_shape(), s=1, pad='VALID')
-            tf.logging.info(f'CONV5:{x.shape.as_list()}')
+        #with tf.variable_scope('conv5'):
+        #    x = SimpleNet.conv2d(x, SimpleNet.c5w_shape(), s=1, pad='VALID')
+        #    tf.logging.info(f'CONV5:{x.shape.as_list()}')
 
-        x = tf.cond(keep_prob > tf.constant(0.0),
-                    lambda: tf.nn.dropout(x, keep_prob),
-                    lambda: x)
+        #x = tf.cond(keep_prob > tf.constant(0.0),
+        #            lambda: tf.nn.dropout(x, keep_prob),
+        #            lambda: x)
 
-        with tf.variable_scope('max_pool2'):
-            x = SimpleNet.max_pool(x)
-            tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
+        #with tf.variable_scope('max_pool2'):
+        #    x = SimpleNet.max_pool(x)
+        #    tf.logging.info(f'MAXPOOL:{x.shape.as_list()}')
 
 
 
@@ -197,16 +197,16 @@ class SimpleNet:
             dim_in = x.shape.as_list()[-1]
             with tf.variable_scope('gbl_avg_pool'):
                 w = tf.get_variable('w', shape=[1,1,dim_in,SimpleNet.y.shape.as_list()[-1]],initializer=SimpleNet.var_init)
-            x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
+                x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID')
 
-            tf.logging.info(f'GLB_CONV:{x.shape.as_list()}')
+                tf.logging.info(f'GLB_CONV:{x.shape.as_list()}')
 
-            shp = x.shape.as_list()
-            ks = [1,shp[1],shp[1],1]
+                shp = x.shape.as_list()
+                ks = [1,shp[1],shp[1],1]
 
-            x = tf.nn.avg_pool(x, ksize=ks, strides=ks, padding='VALID')
+                x = tf.nn.avg_pool(x, ksize=ks, strides=ks, padding='VALID')
 
-            x = tf.reshape(x, [-1, 5])
+                x = tf.reshape(x, [-1, 5])
 
             tf.logging.info(f'GBL_AVG_POOL:{x.shape.as_list()}')
         elif raw_out:
@@ -1030,13 +1030,7 @@ class Resnet:
                         is_training=is_training,
                         reuse=None,
                         trainable=True)
-#        else:
-#            bn = batch_norm(x, decay=0.999, center=True, scale=True,
-#                            updates_collections=None,
-#                            is_training=False,
-#                            reuse=True,
-#                            trainable=True)
-        return bn
+
 
 
     @staticmethod
