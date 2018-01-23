@@ -129,6 +129,10 @@ def get_plot_img(ys, yh):
 
 def evaluate_tensorboard(logit_y,ys):
 
+    if len(logit_y.shape.as_list()) > 2:
+        logit_y = tf.reshape(logit_y, [-1, 6])
+        ys = tf.reshape(ys, [-1, 6])
+
     yh = tf.nn.softmax(logit_y)
     tf.summary.scalar('top_1', top_1(yh, ys))
     tf.summary.scalar('top_2', top_2(yh, ys))

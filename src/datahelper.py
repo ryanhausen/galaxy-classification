@@ -188,7 +188,7 @@ class DataHelper(object):
                 if bands[i] not in ('h','j'):
                     noise = noise.flatten()
                     len_noise = len(noise)-1
-                    
+
                 cpy_img = deepcopy(np.asarray(tmp_img))
                 noise_mask = cpy_img == 0
                 for j in range(cpy_img.shape[0]):
@@ -329,7 +329,7 @@ class DataHelper(object):
                 except Exception as e:
                     print(f'ERROR with {x_dir}')
                     raise e
-
+                move = self.out_size//2
                 cx, cy = 42, 42
                 raw = raw[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
 
@@ -387,7 +387,7 @@ class DataHelper(object):
 
             cls_count_train[np.argmax(lbl)] += 1
 
-        for i in range(len(self._test_imgs)):
+        for i in range(len(self._test_move = self.out_size//2)):
             src = self._test_imgs[i]
             s_id = 'GDS_' + src[:-5]
             lbl = self._lbls.loc[self._lbls['ID']==s_id, self._lbl_cols]
@@ -427,7 +427,6 @@ class DataHelper(object):
 
 
         print(x.shape)
-
         y = self._lbls.loc[self._lbls['ID']=='GDS_'+ source[:-5], self._lbl_cols]
         y = y.values.reshape(self._num_classes)
 
