@@ -273,10 +273,11 @@ class DataHelper(object):
                     print(f'ERROR with {x_dir}')
                     raise e
 
+                x_tmp = DataHelper.pre_process(x_tmp)
+
                 cx, cy = np.random.randint(35, 45, size=2)
                 x_tmp = x_tmp[cy-CROP:cy+CROP, cx-CROP:cx+CROP]
 
-                x_tmp = DataHelper.pre_process(x_tmp)
 
                 if self._augment:
                     x_tmp = self._augment_image(x_tmp, s_id)

@@ -1,4 +1,5 @@
 from copy import deepcopy
+import tf_logger as log
 
 import tensorflow as tf
 from tensorflow.contrib.layers import batch_norm, variance_scaling_initializer
@@ -20,42 +21,49 @@ class ResNetMapper(object):
         # TODO add channel increase to 64 in first block some how
 
         with tf.variable_scope('in_conv'):
-            None
+            log.debug('in_conv')
+            x = conv2d(x,
+                       8,
+                       (1,1),
+                       biases_initializer=None,
+                       weights_initializer=variance_scaling_initializer(),
+                       padding=ResNetMapper._PAD_SAME,
+                       data_format=ResNetMapper._DATA_FORMAT)
 
         segment_outs = []
         # encoder
         for s_idx in range(len(block_config)):
-            for b_idx in range(block_config[s_idx]):
-                with tf.variable_scope('segment{}_block{}'.format(s_idx, b_idx)):
-                    print('segment{}_block{}'.format(s_idx, b_idx), x.shape.as_list())
-                    x = ResNetMapper.building_block(x,
-                                                    b_idx==0 and s_idx>0,
-                                                    is_training,
-                                                    reuse,
-                                                    ResNetMapper.encoding_block_op,
-                                                    conv2d)
-                    print('segment{}_block{}'.format(s_idx, b_idx), x.shape.as_list())
+            with tf.variable_scope('segment{}'.format(s_idx)):
+                for b_idx in range(block_config[s_idx]):
+                    with tf.variable_scope('block{}'.format(b_idx)):
+                        log.debug('segment{}_block{}-{}'.format(s_idx, b_idx, str(x.shape.as_list())))
+                        x = ResNetMapper.building_block(x,
+                                                        b_idx==0 and s_idx>0,
+                                                        is_training,
+                                                        reuse,
+                                                        ResNetMapper.encoding_block_op,
+                                                        conv2d)
+                        log.debug('segment{}_block{}-{}'.format(s_idx, b_idx, str(x.shape.as_list())))
             segment_outs.append(x)
-
-        print("encoder constructed")
 
         # decoder
         for s_idx in range(-1, -(len(block_config)+1), -1):
-            x = tf.concat([x, segment_outs[s_idx]], 3)
-            for b_idx in range(-1, -(block_config[s_idx]+1), -1):
-                with tf.variable_scope('segment{}_block{}'.format(s_idx, b_idx)):
-                    print('segment{}_block{}'.format(s_idx, b_idx), x.shape.as_list())
-                    x = ResNetMapper.building_block(x,
-                                                    b_idx==-1 and s_idx>-4,
-                                                    is_training,
-                                                    reuse,
-                                                    ResNetMapper.decoding_block_op,
-                                                    conv2d_transpose)
-                    print('segment{}_block{}'.format(s_idx, b_idx), x.shape.as_list())
+            with tf.variable_scope('segment{}'.format(s_idx)):
+                x = tf.concat([x, segment_outs[s_idx]], 3)
+                for b_idx in range(-1, -(block_config[s_idx]+1), -1):
+                    with tf.variable_scope('block{}'.format(b_idx)):
+                        log.debug('segment{}_block{}-{}'.format(s_idx, b_idx, str(x.shape.as_list())))
+                        x = ResNetMapper.building_block(x,
+                                                        b_idx==-1 and s_idx>-4,
+                                                        is_training,
+                                                        reuse,
+                                                        ResNetMapper.decoding_block_op,
+                                                        conv2d_transpose)
+                        log.debug('segment{}_block{}-{}'.format(s_idx, b_idx, str(x.shape.as_list())))
 
 
         with tf.variable_scope('out_conv'):
-            print('out_conv')
+            log.debug('out_conv')
             x = conv2d(x,
                        6,
                        (1,1),
@@ -63,7 +71,7 @@ class ResNetMapper(object):
                        weights_initializer=variance_scaling_initializer(),
                        padding=ResNetMapper._PAD_SAME,
                        data_format=ResNetMapper._DATA_FORMAT)
-            print(x.shape.as_list())
+            log.debug(x.shape.as_list())
 
         return x
 
@@ -97,7 +105,7 @@ class ResNetMapper(object):
                            pad,
                            is_training)
 
-        print(f_x.shape.as_list())
+        log.debug(f_x.shape.as_list())
         with tf.variable_scope('conv_op2', reuse=reuse):
             f_x = block_op(f_x,
                            out_channels,
@@ -105,7 +113,7 @@ class ResNetMapper(object):
                            (1,1),
                            ResNetMapper._PAD_SAME,
                            is_training)
-        print(f_x.shape.as_list())
+        log.debug(f_x.shape.as_list())
 
         if dim_change:
             with tf.variable_scope('projection_op', reuse=reuse):
@@ -189,10 +197,13 @@ class ResNetMapper(object):
                         activation_fn=None,
                         data_format=ResNetMapper._DATA_FORMAT)
 
-
-            shp = x.shape.as_list()
-            wh = shp[1]*2 if s[0]==2 else shp[1]
-            return tf.slice(cv, [0,1,1,0], [-1, wh, wh, f])
+            if s[0]==2:
+                return cv[:,1:,1:,:]
+            else:
+                return cv
+            # shp = x.shape.as_list()
+            # wh = shp[1]*2 if s[0]==2 else shp[1]
+            # return tf.slice(cv, [0,1,1,0], [-1, wh, wh, f])
 
 
 

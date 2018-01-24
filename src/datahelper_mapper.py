@@ -50,6 +50,7 @@ class DataHelper(object):
                 except Exception as e:
                     print('ERROR with {}')
                     raise e
+                x_tmp = DataHelper._pre_process(x_tmp)
 
                 cx, cy = randint(35,45), randint(35,45)
                 x_tmp = x_tmp[cy-crop:cy+crop, cx-crop:cx+crop]
@@ -88,6 +89,8 @@ class DataHelper(object):
                 except Exception as e:
                     print('ERROR with {}')
                     raise e
+
+                x_tmp = DataHelper._pre_process(x_tmp)
 
                 cx, cy = 42, 42
                 x_tmp = x_tmp[cy-crop:cy+crop, cx-crop:cx+crop]

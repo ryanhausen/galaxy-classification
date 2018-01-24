@@ -55,7 +55,7 @@ class ResNet:
 
         return x
 
-def print_total_params():
+def print_total_params(print_function=tf.logging.info):
     """
         outputs the number of learnable parameters
     """
@@ -68,5 +68,5 @@ def print_total_params():
         for dim in shape:
             variable_parametes *= dim.value
         total_parameters += variable_parametes
-    tf.logging.info(f'TOTAL NUMBER OF PARAMTERS:{total_parameters}')
-    tf.logging.info(f'Memory Estimate:{total_parameters*32/8/1024/1024} MB')
+    print_function(f'TOTAL NUMBER OF PARAMTERS:{total_parameters}')
+    print_function(f'Memory Estimate:{total_parameters*32/8/1024/1024} MB')
