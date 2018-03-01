@@ -1,36 +1,35 @@
 {
+	"iter_limit": 40000,
 	"batch_size": 50,
 	"train_size": 0.8,
-	"n_classes": 5,
-	"epoch_limit": 100,
-	"iter_limit": 40000,
+	"crop_size": 80,
+	"even_class_dist": "true",
 
-	"decay_steps": "",
-	"decay_base": 0.96,
-	"learning_rate_reduce": [5000,10000,20000],
-	"start_learning_rate": 0.00001,
-	"momentum": 0.9,
-	"nesterov": "true",
+	"block_config": [3,3,3,3],
 
-	"bands": ["v", "z", "h", "j"],
-	"block_config": [6,6,6,6],
-	"2016_update": "true",
-	"global_avg_pool": "true",
-
-	"trans_func": "",
-
-	"band_trans_func": "",
-	"label_noise": "",
-
-	"model_dir": "../models",
-	"test_progress": "../report/test_progress.csv",
 	"tf_train_dir":"../report/tf-log/train",
 	"tf_test_dir":"../report/tf-log/test",
 
+	"start_learning_rate": 0.00001,
+	"decay_steps": 5000,
+	"decay_base": 0.96,
 
+	"learning_rate_reduce": [5000,10000,20000],
+	"n_classes": 5,
+	"epoch_limit": 100,
+	"momentum": 0.9,
+	"nesterov": "true",
+	"bands": ["v", "z", "h", "j"],
+	"2016_update": "true",
+	"global_avg_pool": "true",
+	"trans_func": "",
+	"band_trans_func": "",
+	"label_noise": "",
+	"model_dir": "../models",
+	"test_progress": "../report/test_progress.csv",
 	"save_progress": "true",
 	"train": "true",
 	"restore": "false",
-     "print":"true",
-     "rtrn_eval":"true"
+    "print":"true",
+    "rtrn_eval":"true"
 }

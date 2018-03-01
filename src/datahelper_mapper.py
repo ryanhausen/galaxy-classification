@@ -50,10 +50,11 @@ class DataHelper(object):
                 except Exception as e:
                     print('ERROR with {}')
                     raise e
-                x_tmp = DataHelper._pre_process(x_tmp)
 
-                cx, cy = randint(35,45), randint(35,45)
+                cx, cy = randint(38,42), randint(38,42)
                 x_tmp = x_tmp[cy-crop:cy+crop, cx-crop:cx+crop]
+
+                x_tmp = DataHelper._pre_process(x_tmp)
                 # ==============================================================
 
                 # label ========================================================
@@ -90,10 +91,10 @@ class DataHelper(object):
                     print('ERROR with {}')
                     raise e
 
-                x_tmp = DataHelper._pre_process(x_tmp)
-
                 cx, cy = 42, 42
                 x_tmp = x_tmp[cy-crop:cy+crop, cx-crop:cx+crop]
+
+                x_tmp = DataHelper._pre_process(x_tmp)
 
                 s_id = 'GDS_' + s_id
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, lbl_columns]

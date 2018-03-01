@@ -23,7 +23,7 @@ class ResNetMapper(object):
         with tf.variable_scope('in_conv'):
             log.debug('in_conv')
             x = conv2d(x,
-                       8,
+                       4,
                        (1,1),
                        biases_initializer=None,
                        weights_initializer=variance_scaling_initializer(),
@@ -117,6 +117,7 @@ class ResNetMapper(object):
 
         if dim_change:
             with tf.variable_scope('projection_op', reuse=reuse):
+
                 porjection_kernel = (1, 1)
                 x = project_op(x,
                                out_channels,

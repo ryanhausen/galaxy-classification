@@ -1,4 +1,7 @@
+import os
+import json
 
+import param_helper as ph
 import datahelper_mapper as dh
 import ResNetMapper as network
 from resnet import print_total_params
@@ -9,22 +12,28 @@ import tensorflow as tf
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-
-x = tf.placeholder(tf.float32, [None,40,40,1])
-y = tf.placeholder(tf.float32, [None,40,40,6])
+with open('params.json', 'r') as f:
+    params = ph.format_params(json.load(f))
 iters = tf.Variable(1, trainable=False)
-iter_limit = 10000
-batch_size = 50
 
-learning_rate = tf.train.exponential_decay(0.001,
+img_size = params['crop_size']
+x = tf.placeholder(tf.float32, [None,img_size,img_size,1])
+y = tf.placeholder(tf.float32, [None,img_size,img_size,6])
+
+
+
+iter_limit = params['iter_limit']
+batch_size = params['batch_size']
+
+learning_rate = tf.train.exponential_decay(params['start_learning_rate'],
                                            iters,
-                                           5000,
-                                           0.96)
+                                           params['decay_steps'],
+                                           params['decay_base'])
 
 network.ResNetMapper._DATA_FORMAT = 'NHWC'
 
 log.info('building graph...')
-net = network.ResNetMapper.build_graph(x, [3,3,3,3], True, None)
+net = network.ResNetMapper.build_graph(x, params['block_config'], True, None)
 log.info('done')
 
 with tf.variable_scope('loss'):
@@ -37,9 +46,8 @@ with tf.variable_scope('loss'):
         grads = [(tf.clip_by_value(grad, -1.5, 1.5), var) for grad,var in grads]
     update = optimizer.apply_gradients(grads, global_step=iters)
 
-top_result = 0.0
 
-data = dh.DataHelper(out_size=40)
+data = dh.DataHelper(out_size=img_size)
 
 with tf.name_scope('metrics'):
     evaluate.evaluate_tensorboard(net, y)
@@ -56,14 +64,15 @@ print_total_params()
 with tf.Session(config=config) as sess:
     sess.run(init)
 
-    trainWriter = tf.summary.FileWriter("../report/tf-log/train", graph=sess.graph)
-    testWriter = tf.summary.FileWriter("../report/tf-log/test", graph=sess.graph)
+    trainWriter = tf.summary.FileWriter(params['tf_train_dir'], graph=sess.graph)
+    testWriter = tf.summary.FileWriter(params['tf_test_dir'], graph=sess.graph)
 
+    top_result = 100.0
     current_iter = iters.eval()
     while current_iter < iter_limit:
         log.info('iter {}'.format(current_iter))
 
-        xs, ys = data.next_batch(batch_size, True, False)
+        xs, ys = data.next_batch(batch_size, True, params['even_class_dist'])
         batch = {x:xs, y:ys}
         sess.run(update, feed_dict=batch)
 
@@ -74,7 +83,7 @@ with tf.Session(config=config) as sess:
 
             yhs = sess.run([tf.reshape(tf.nn.softmax(net), [-1,6])], feed_dict={x:xs})
             cm = evaluate.tensorboard_confusion_matrix(yhs, ys)
-            testWriter.add_summary(cm, current_iter)
+            trainWriter.add_summary(cm, current_iter)
 
 
         if current_iter%100==0:
@@ -84,8 +93,15 @@ with tf.Session(config=config) as sess:
             s = sess.run(summaries, feed_dict=test_data)
             testWriter.add_summary(s, current_iter)
 
-            test_yhs = sess.run([tf.nn.softmax(net)], feed_dict={x:test_xs})
+            test_yhs = sess.run([tf.reshape(tf.nn.softmax(net), [-1,6])], feed_dict={x:test_xs})
             cm = evaluate.tensorboard_confusion_matrix(test_yhs, test_ys)
             testWriter.add_summary(cm, current_iter)
+
+            test_loss = sess.run(loss, feed_dict=test_data)
+            if test_loss < top_result:
+                log.info('Saving Checkpoint')
+                model_path = os.path.join(params['model_dir'], 'res-net.ckpt')
+                saver.save(sess, model_path, global_step=iters)
+                top_result = test_loss
 
         current_iter = iters.eval()
