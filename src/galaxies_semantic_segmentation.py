@@ -1,6 +1,8 @@
 import os
 
+import numpy as np
 import pandas as pd
+from astropy.io import fits
 
 import tensorflow as tf
 import tensorflow.data as tfd
@@ -10,6 +12,9 @@ class Dataset:
     PRE_PAD = 10
     IMG_OUT = 80
     IN_CHANNELS = 4
+    NUM_LABELS = 5
+    BACKGROUND = np.array([0, 0, 0, 0, 1], dtype=np.float32)
+
     def __init__(self, img_dir, labels_dir, split=0.8, batch_size=25):
         all_imgs = os.listdir(img_dir)
         split_idx = int(len(all_imgs) * split)
@@ -22,6 +27,7 @@ class Dataset:
         train_y = Dataset._get_img_labels(labels, train_x)
         test_y = Dataset._get_img_labels(labels, test_x)
 
+        self.batch_size = batch_size
         self.train_data = tfd.Dataset.from_tensor_slices((train_x, train_y))
         self.test_data = tfd.Dataset.from_tensor_slices((test_x, test_y))
 
@@ -43,29 +49,85 @@ class Dataset:
 
         return label_list
 
-    def train():
-        None
+    @property
+    def train(self):
+        training_data = self.train_data.map(Dataset.tf_prep_input)
+        training_data = training_data.map(Dataset.augment_data)
+        training_data = training_data.map(Dataset.preprocess_data)
+        training_data = training_data.batch(self.batch_size)
+        return training_data.make_one_shot_iterator()
 
-    def test():
-        None
+        
+    @property
+    def test(self):
+        training_data = self.train_data.map(Dataset.tf_prep_input)
+        training_data = training_data.map(Dataset.preprocess_data)
+        training_data = training_data.batch(self.batch_size)
+        return training_data.make_one_shot_iterator()
+
+    @staticmethod
+    def tf_prep_input(dataset_item):
+        return tf.py_func(Dataset.prep_input, dataset_item, tf.float32)
+
+    @staticmethod
+    def prep_input(data_in):
+        x_file, label = data_in
+        lbl, segmap_file = label
+
+        x = Dataset.safe_fits_open(x_file)
+        segmap = Dataset.safe_fits_open(segmap_file)
+        img_id = int(segmap_file.split('_')[-2])
+
+        y = np.zeros([Dataset.IMG_IN, Dataset.IMG_IN, Dataset.NUM_LABELS])
+        y[segmap==img_id] = lbl
+        y[segmap!=img_id] = Dataset.BACKGROUND
+
+        return (x, y)
+
+
+
+
+    @staticmethod
+    def safe_fits_open(fits_file):
+        f = fits.getdata(fits_file)
+        img = f.copy()
+        del f
+        return img
+
+    @staticmethod
+    def preprocess_data(data_item):
+        x, y = data_item
+
+        return (Dataset._preprocess_x(x), y)
+
+    @staticmethod
+    def augment_data(data_item):
+        x, y = data_item
+
+        seed = tf.random_uniform(1, maxval=1e9, dtype=tf.float32)
+
+        x = Dataset._augment(x, seed)
+        y = Dataset._augment(y, seed)
+
+        return (x, y)
+
+    @staticmethod
+    def _augment(t, seed):
+        pad_v = Dataset.IMG_IN + Dataset.PRE_PAD
+        out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, Dataset.IN_CHANNELS]
+        angle = tf.random_uniform(1, maxval=360, seed=seed)
+
+        t = tf.image.resize_image_with_crop_or_pad(t, pad_v, pad_v)
+        t = tf.random_crop(t, out_shape, seed=seed)
+        t = tf.contrib.image.rotate(t, angle, interpolation='BILINEAR')
+        t = tf.image.random_flip_left_right(t, seed=seed)
+        t = tf.image.random_flip_up_down(t, seed=seed)
+
+        return t
+
 
     @staticmethod
     def _preprocess_x(x, is_training):
-        if is_training:
-            pad_v = Dataset.IMG_IN + Dataset.PRE_PAD
-            out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, Dataset.IN_CHANNELS]
-            angle = tf.random_uniform(1, maxval=360)
-
-            x = tf.image.resize_image_with_crop_or_pad(x, pad_v, pad_v)
-            x = tf.random_crop(x, out_shape)
-
-            
-            x = tf.contrib.image.rotate(x, angle, interpolation='BILINEAR')
-            x = tf.image.random_flip_left_right(x)
-            x = tf.image.random_flip_up_down(x)
-
-
-        
         x = tf.image.per_image_standardization(x)
         x = tf.reduce_mean(x, axis=2)
         return x
