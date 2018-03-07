@@ -1,16 +1,15 @@
 import tensorflow as tf
-from tf.layers import batch_normalization, conv2d
-
+from tensorflow.layers import batch_normalization, conv2d
 
 BATCH_NORM_MOMENTUM = 0.9
 
 def block_conv(*ignore, x=None,
                         filters=None,
                         stride=1,
+                        kernel_size=3,
                         padding='same',
                         data_format='channels_first',
-                        weight_init=tf.variance_scaling_initializer(),
-                        ):
+                        weight_init=tf.variance_scaling_initializer()):
     if ignore:
         raise ValueError('Only keyword arguments are supported')
     if x is None:
@@ -18,13 +17,13 @@ def block_conv(*ignore, x=None,
     if filters is None:
         raise ValueError('Must specify \'filters\'')
 
-    kernel_size=3
     return conv2d(x,
                   filters,
-                  3,
+                  kernel_size,
                   strides=stride,
                   padding=padding,
                   kernel_initializer=weight_init,
+                  use_bias=None,
                   data_format=data_format,
                   name='block_conv')
 
@@ -32,7 +31,8 @@ def block_conv(*ignore, x=None,
 def block_op(*ignore, x=None,
                       activation=tf.nn.relu,
                       is_training=None,
-                      weight_op=None):
+                      weight_op=None,
+                      data_format='channels_first'):
     if ignore:
         raise ValueError('Only keyword arguments are supported')
     if is_training is None:
@@ -40,10 +40,12 @@ def block_op(*ignore, x=None,
     if x is None:
         raise ValueError('Must specify \'x\'')
 
+
     x = batch_normalization(x,
                             momentum=BATCH_NORM_MOMENTUM,
-                            scale=False, # turn off becuase of ReLU, see docs
+                            scale=activation==tf.nn.relu, 
                             fused=True,
+                            axis=1 if data_format=='channels_first' else 3,
                             training=is_training)
 
     if activation:
@@ -57,6 +59,7 @@ def block_op(*ignore, x=None,
 def block(*ignore, x=None,
                    is_training=None,
                    projection_op=None,
+                   resample_op=None,
                    data_format='channels_first'):
     if ignore:
         raise ValueError('Only keyword arguments are supported')
@@ -70,24 +73,32 @@ def block(*ignore, x=None,
 
     fx = x
 
-
     def standard_conv(_x):
         return block_conv(x=_x,filters=in_channels, data_format=data_format)
 
-    def change_dim_conv(_x):
-        return block_conv(x=_x,
-                          filters=in_channels*2,
-                          stride=2,
-                          padding='valid',
-                          data_format=data_format)
+    # def change_dim_conv(_x):
+    #     return block_conv(x=_x,
+    #                       filters=in_channels*2,
+    #                       stride=2,
+    #                       padding='valid',
+    #                       data_format=data_format)
 
-    init_conv = change_dim_conv if projection_op else standard_conv
+
+    init_conv = resample_op if resample_op else standard_conv
 
     with tf.variable_scope('block_op1'):
-        fx = block_op(x=fx, is_training=is_training, weight_op=init_conv)
+        fx = block_op(x=fx, is_training=is_training, weight_op=init_conv, data_format=data_format)
 
     with tf.variable_scope('block_op2'):
-        fx = block_op(x=fx, is_training=is_training, weight_op=standard_conv)
+        fx = block_op(x=fx, is_training=is_training, weight_op=standard_conv, data_format=data_format)
+
+    if projection_op:
+        with tf.variable_scope('projection_op')
+        x = projection_op(x)
+
+    return x + fx
+
+    
 
 
 

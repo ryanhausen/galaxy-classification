@@ -25,7 +25,6 @@ class ResNetMapper(object):
             x = conv2d(x,
                        4,
                        (1,1),
-                       biases_initializer=None,
                        weights_initializer=variance_scaling_initializer(),
                        padding=ResNetMapper._PAD_SAME,
                        data_format=ResNetMapper._DATA_FORMAT)
