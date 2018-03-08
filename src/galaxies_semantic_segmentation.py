@@ -5,7 +5,6 @@ import pandas as pd
 from astropy.io import fits
 
 import tensorflow as tf
-import tensorflow.data as tfd
 
 class Dataset:
     IMG_IN = 84 
@@ -28,8 +27,8 @@ class Dataset:
         test_y = Dataset._get_img_labels(labels, test_x)
 
         self.batch_size = batch_size
-        self.train_data = tfd.Dataset.from_tensor_slices((train_x, train_y))
-        self.test_data = tfd.Dataset.from_tensor_slices((test_x, test_y))
+        self.train_data = tf.data.Dataset.from_tensor_slices((train_x, train_y))
+        self.test_data = tf.data.Dataset.from_tensor_slices((test_x, test_y))
 
     @staticmethod
     def _get_img_labels(labels_dir, img_list):
@@ -140,7 +139,7 @@ class Dataset:
         return t
 
 
-def __main__():
+def main():
     data_dir = '~/Documents/astro_data/our_images'
     label_dir = '~/Documents/galaxy-classification/data/labels'
 
@@ -148,3 +147,5 @@ def __main__():
 
     with tf.Session() as sess:
         print(sess.run(dataset.train.get_next()))
+        
+if __name__ == "__main__": main()
