@@ -9,7 +9,7 @@ import tensorflow as tf
 class Dataset:
     IMG_IN = 84
     PRE_PAD = 10
-    IMG_OUT = 80
+    IMG_OUT = 40
     IN_CHANNELS = 4
     NUM_LABELS = 5
     BACKGROUND = np.array([0, 0, 0, 0, 1], dtype=np.float32)
@@ -33,6 +33,9 @@ class Dataset:
         self.batch_size = batch_size
         self.train_data = tf.data.Dataset.from_tensor_slices((train_x, train_y, train_segmap))
         self.test_data = tf.data.Dataset.from_tensor_slices((test_x, test_y, test_segmap))
+
+        self._train = None
+        self._test = None
 
     @staticmethod
     def _get_img_labels(labels_dir, img_list):
@@ -60,18 +63,24 @@ class Dataset:
 
     @property
     def train(self):
-        training_data = self.train_data.map(Dataset.tf_prep_input)
-        training_data = training_data.map(Dataset.preprocess_train)
-        training_data = training_data.batch(self.batch_size)
-        return training_data.make_one_shot_iterator()
+        if self._train is None:
+            training_data = self.train_data.map(Dataset.tf_prep_input)
+            training_data = training_data.map(Dataset.preprocess_train)
+            training_data = training_data.batch(self.batch_size)
+            self._train = training_data
+
+        return self._train.make_one_shot_iterator()
 
 
     @property
     def test(self):
-        training_data = self.train_data.map(Dataset.tf_prep_input)
-        training_data = training_data.map(Dataset.preprocess_test)
-        training_data = training_data.batch(self.batch_size)
-        return training_data.make_one_shot_iterator()
+        if self._test is None:
+            test_data = self.test_data.map(Dataset.tf_prep_input)
+            test_data = test_data.map(Dataset.preprocess_test)
+            test_data = test_data.batch(self.batch_size)
+            self._test = test_data
+
+        return self._test.make_one_shot_iterator()
 
     @staticmethod
     def tf_prep_input(x, y, segmap):
@@ -156,13 +165,29 @@ class Dataset:
 
 
 def main():
+    info = f"""
+    CANDELS Morphological Classification -- Semantic Segmentation
+    -- X:   [{Dataset.IMG_OUT}, {Dataset.IMG_OUT}, 1]
+    -- Y:   [Spheroid, Disk, Irregular, Point Source, Background]
+
+    Input is bands HJVZ and compressed to grayscale by taking the mean
+    """
+
     data_dir = '../data/imgs'
     label_dir = '../data/labels'
 
     dataset = Dataset(data_dir, label_dir)
 
+    print(info)
     with tf.Session() as sess:
+        print('Asserting train shape')
         x, y = sess.run(dataset.train.get_next())
-        print(x.shape, y.shape)
+        assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
+        assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
+
+        print('Asserting test shape')
+        x, y = sess.run(dataset.test.get_next())
+        assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
+        assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
 
 if __name__ == "__main__": main()
