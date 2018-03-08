@@ -7,7 +7,7 @@ from astropy.io import fits
 import tensorflow as tf
 
 class Dataset:
-    IMG_IN = 84 
+    IMG_IN = 84
     PRE_PAD = 10
     IMG_OUT = 80
     IN_CHANNELS = 4
@@ -36,11 +36,11 @@ class Dataset:
 
     @staticmethod
     def _get_img_labels(labels_dir, img_list):
-        lbl_columns = ['ClSph','ClDk','ClIr','ClPS','ClUn']
+        lbl_columns = ['ClSph','ClDk','ClIr','ClPS']
 
         label_file = os.path.join(labels_dir, 'labels.csv')
         labels = pd.read_csv(label_file)
-        
+
 
         label_list = []
         for i in img_list:
@@ -48,10 +48,13 @@ class Dataset:
             lbl_id = 'GDS_{}'.format(i.replace('.fits', ''))
             lbl = labels.loc[labels['ID']==lbl_id, lbl_columns].values.flatten()
 
+            # add background
+            lbl = np.pad(lbl, (0,1), mode='constant').astype(np.float32)
+
             s_file = 'GDS_{}_segmap.fits'.format(i.replace('.fits', ''))
             s_file = os.path.join(labels_dir, 'segmaps', s_file)
 
-            label_list.append((lbl.astype(np.float32), s_file))
+            label_list.append((lbl, s_file))
 
         return label_list
 
@@ -62,7 +65,7 @@ class Dataset:
         training_data = training_data.batch(self.batch_size)
         return training_data.make_one_shot_iterator()
 
-        
+
     @property
     def test(self):
         training_data = self.train_data.map(Dataset.tf_prep_input)
@@ -89,8 +92,6 @@ class Dataset:
         y[segmap==img_id] = lbl
         y[segmap!=img_id] = Dataset.BACKGROUND
 
-        print(x.shape, y.shape)
-
         return [x, y]
 
     @staticmethod
@@ -100,7 +101,7 @@ class Dataset:
         del f
         return img
 
-    @staticmethod 
+    @staticmethod
     def preprocess_train(x, y):
         return Dataset._preprocess_data(x, y, True)
 
@@ -110,15 +111,17 @@ class Dataset:
 
     @staticmethod
     def _preprocess_data(x, y, is_training):
+        # concatenate the arrays together so that they are changed the same
         t = tf.concat([x, y], axis=-1)
-        
+
         if is_training:
             t = Dataset._augment(t)
 
         t = Dataset._crop(t, is_training)
 
-        x, y = t[:,:,0,tf.newaxis], t[:,:,1:]
-            
+        # split them back up
+        x, y = t[:,:,:4], t[:,:,4:]
+
         return (Dataset._stadardize(x), y)
 
     @staticmethod
@@ -135,13 +138,15 @@ class Dataset:
         x = tf.image.per_image_standardization(x)
         x = tf.reduce_mean(x, axis=2)
 
-        return x
+        # taking the mean across channels collapses the last dimension.
+        # has to be readded to have the proper rank
+        return x[:,:,tf.newaxis]
 
     @staticmethod
     def _crop(t, is_training):
         if is_training:
             pad_v = Dataset.IMG_IN + Dataset.PRE_PAD
-            out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, Dataset.IN_CHANNELS]
+            out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, t.shape.as_list()[-1]]
             t = tf.image.resize_image_with_crop_or_pad(t, pad_v, pad_v)
             t = tf.random_crop(t, out_shape)
         else:
@@ -157,6 +162,7 @@ def main():
     dataset = Dataset(data_dir, label_dir)
 
     with tf.Session() as sess:
-        print(sess.run(dataset.train.get_next()))
-        
+        x, y = sess.run(dataset.train.get_next())
+        print(x.shape, y.shape)
+
 if __name__ == "__main__": main()
