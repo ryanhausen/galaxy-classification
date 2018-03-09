@@ -1,5 +1,7 @@
 import tensorflow as tf
-from tensorflow.layers import batch_normalization, conv2d
+
+batch_norm = tf.layers.batch_normalization
+conv2d = tf.layers.conv2d
 
 BATCH_NORM_MOMENTUM = 0.9
 
@@ -41,12 +43,12 @@ def block_op(*ignore, x=None,
         raise ValueError('Must specify \'x\'')
 
 
-    x = batch_normalization(x,
-                            momentum=BATCH_NORM_MOMENTUM,
-                            scale=activation==tf.nn.relu, 
-                            fused=True,
-                            axis=1 if data_format=='channels_first' else 3,
-                            training=is_training)
+    x = batch_norm(x,
+                   momentum=BATCH_NORM_MOMENTUM,
+                   scale=activation==tf.nn.relu,
+                   fused=True,
+                   axis=1 if data_format=='channels_first' else 3,
+                   training=is_training)
 
     if activation:
         x = activation(x)
@@ -76,14 +78,6 @@ def block(*ignore, x=None,
     def standard_conv(_x):
         return block_conv(x=_x,filters=in_channels, data_format=data_format)
 
-    # def change_dim_conv(_x):
-    #     return block_conv(x=_x,
-    #                       filters=in_channels*2,
-    #                       stride=2,
-    #                       padding='valid',
-    #                       data_format=data_format)
-
-
     init_conv = resample_op if resample_op else standard_conv
 
     with tf.variable_scope('block_op1'):
@@ -93,12 +87,12 @@ def block(*ignore, x=None,
         fx = block_op(x=fx, is_training=is_training, weight_op=standard_conv, data_format=data_format)
 
     if projection_op:
-        with tf.variable_scope('projection_op')
-        x = projection_op(x)
+        with tf.variable_scope('projection_op'):
+            x = projection_op(x)
 
     return x + fx
 
-    
+
 
 
 

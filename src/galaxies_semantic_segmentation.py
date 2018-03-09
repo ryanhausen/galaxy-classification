@@ -12,7 +12,6 @@ class Dataset:
     IMG_OUT = 40
     IN_CHANNELS = 4
     NUM_LABELS = 5
-    BACKGROUND = np.array([0, 0, 0, 0, 1], dtype=np.float32)
 
     def __init__(self, img_dir, labels_dir, split=0.8, batch_size=25):
         all_imgs = os.listdir(img_dir)
@@ -28,8 +27,6 @@ class Dataset:
         test_y, test_segmap = zip(*Dataset._get_img_labels(labels_dir, test_x))
         test_y, test_segmap = np.array(test_y), np.array(test_segmap)
 
-        #print(train_x.shape, train_y.shape)
-
         self.batch_size = batch_size
         self.train_data = tf.data.Dataset.from_tensor_slices((train_x, train_y, train_segmap))
         self.test_data = tf.data.Dataset.from_tensor_slices((test_x, test_y, test_segmap))
@@ -43,7 +40,6 @@ class Dataset:
 
         label_file = os.path.join(labels_dir, 'labels.csv')
         labels = pd.read_csv(label_file)
-
 
         label_list = []
         for i in img_list:
@@ -167,6 +163,7 @@ class Dataset:
 def main():
     info = f"""
     CANDELS Morphological Classification -- Semantic Segmentation
+    DATASET
     -- X:   [{Dataset.IMG_OUT}, {Dataset.IMG_OUT}, 1]
     -- Y:   [Spheroid, Disk, Irregular, Point Source, Background]
 
