@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tf_logger as log
 
 batch_norm = tf.layers.batch_normalization
 conv2d = tf.layers.conv2d
@@ -71,20 +72,25 @@ def block(*ignore, x=None,
         raise ValueError('Must specify \'x\'')
 
     ch_idx = 1 if data_format=='channels_first' else 3
-    in_channels = x.shape.as_list()[ch_idx]
-
     fx = x
 
     def standard_conv(_x):
+        in_channels = _x.shape.as_list()[ch_idx]
         return block_conv(x=_x,filters=in_channels, data_format=data_format)
 
     init_conv = resample_op if resample_op else standard_conv
 
     with tf.variable_scope('block_op1'):
-        fx = block_op(x=fx, is_training=is_training, weight_op=init_conv, data_format=data_format)
+        fx = block_op(x=fx, 
+                      is_training=is_training,
+                      weight_op=init_conv,
+                      data_format=data_format)
 
     with tf.variable_scope('block_op2'):
-        fx = block_op(x=fx, is_training=is_training, weight_op=standard_conv, data_format=data_format)
+        fx = block_op(x=fx,
+                      is_training=is_training,
+                      weight_op=standard_conv,
+                      data_format=data_format)
 
     if projection_op:
         with tf.variable_scope('projection_op'):

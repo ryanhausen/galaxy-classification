@@ -12,6 +12,7 @@ class Dataset:
     IMG_OUT = 40
     IN_CHANNELS = 4
     NUM_LABELS = 5
+    BACKGROUND = np.array([0,0,0,0,1], dtype=np.float32)
 
     def __init__(self, img_dir, labels_dir, split=0.8, batch_size=25):
         all_imgs = os.listdir(img_dir)

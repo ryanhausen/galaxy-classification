@@ -1,3 +1,4 @@
+import types
 
 import tensorflow as tf
 from tf_src import resnet
@@ -11,15 +12,19 @@ class Model:
     INIT_FILTERS = 4
     BLOCK_CONFIG = [2, 4, 4, 8]
 
-    def __init__(self, dataset, is_training, learning_rate=None):
+    def __init__(self, dataset, is_training):
         self.dataset = dataset
         self.is_training = is_training
         self.num_classes = dataset.NUM_CLASSES
 
+        self._graph = None
         self._train = None
         self._optimizer = None
         self._test = None
         self._inference = None
+
+        self._train_metrics = None
+        self._test_metrics = None
 
 
     @property
@@ -40,7 +45,7 @@ class Model:
                 x = conv2d(x,
                            Model.INIT_FILTERS,
                            3,
-                           weights_initializer=var_init(),
+                           kernel_initializer=var_init(),
                            padding='same',
                            data_format=Model.DATA_FORMAT)
 
@@ -74,26 +79,27 @@ class Model:
                     x = tf.concat([x, encoded[s_idx]], concat_axis)
 
                     for b_idx in range(-1, -(Model.BLOCK_CONFIG[s_idx]+1), -1):
-                        log_shape(s_idx, b_idx, x)
+                        with tf.variable_scope('block{}'.format(b_idx)):
+                            log_shape(s_idx, b_idx, x)
 
-                        if b_idx==-1 and s_idx>-4:
-                            resample_op = Model.up_sample(x)
-                            projection_op = Model.up_project(x)
-                        else:
-                            resample_op = None
-                            projection_op = None
+                            if b_idx==-1 and s_idx>-4:
+                                resample_op = Model.up_sample(x)
+                                projection_op = Model.up_project(x)
+                            else:
+                                resample_op = None
+                                projection_op = None
 
-                        x = resnet.block(x=x,
-                                         is_training=self.is_training,
-                                         projection_op=projection_op,
-                                         resample_op=resample_op,
-                                         data_format=Model.DATA_FORMAT)
+                            x = resnet.block(x=x,
+                                            is_training=self.is_training,
+                                            projection_op=projection_op,
+                                            resample_op=resample_op,
+                                            data_format=Model.DATA_FORMAT)
 
             with tf.variable_scope('out_conv'):
                 x = conv2d(x,
                            self.num_classes,
                            1,
-                           weights_initializer=var_init(),
+                           kernel_initializer=var_init(),
                            padding='same',
                            data_format=Model.DATA_FORMAT)
                 log.debug('[out_conv]::{}'.format(x.shape.as_list()))
@@ -153,8 +159,8 @@ class Model:
             return _x
 
 
-        if model.DATA_FORMAT=='channels_first':
-            def f(_x)
+        if Model.DATA_FORMAT=='channels_first':
+            def f(_x):
                 _x = tf.transpose(_x, [0, 2, 3, 1])
                 _x = _f(_x)
                 _x = tf.transpose(_x, [0, 3, 1, 2])
@@ -168,7 +174,7 @@ class Model:
 
     @staticmethod
     def up_project(x):
-        return up_sample(x)
+        return Model.up_sample(x)
 
 
     @property
@@ -179,7 +185,7 @@ class Model:
         with tf.variable_scope('optimization'):
             loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=y)
-            optimize = self.optimizer(loss)
+            optimize = (self.optimizer)(loss)
 
         with tf.variable_scope('metrics'):
             self.train_metrics(tf.nn.softmax(logits), y)
@@ -208,6 +214,13 @@ class Model:
         def f(yh, ys):
             log.warn('No testing metrics set')
 
+        self._test_metrics = f
+        return self.test_metrics
+
+    @test_metrics.setter
+    def test_metrics(self, value):
+        self._test_metrics = value
+
     @property
     def optimizer(self):
         if self._optimizer:
@@ -217,6 +230,8 @@ class Model:
             log.warn('No optimizer set')
 
         self._optimizer = optimize
+
+        return self._optimizer
 
     @optimizer.setter
     def optimizer(self, value):
@@ -239,7 +254,21 @@ def main():
     DATA_FORMAT:    {Model.DATA_FORMAT}
     """
 
+    tf.logging.set_verbosity(tf.logging.DEBUG)
     print(info)
+
+    in_shape = [5,40,40,1]
+    expect_out_shape = [5,40,40,5]
+
+    x = tf.placeholder(tf.float32, shape=in_shape)
+
+    mock_dataset = types.SimpleNamespace(NUM_CLASSES=5)
+    Model.DATA_FORMAT = 'channels_last'
+    m = Model(mock_dataset, True)
+    
+    out = m.graph(x)
+
+    assert out.shape.as_list()==expect_out_shape, "Incorrect Shape"
 
     # TODO write a test using a placeholder?
 
