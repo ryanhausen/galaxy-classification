@@ -13,6 +13,7 @@ class Dataset:
     IN_CHANNELS = 4
     NUM_LABELS = 5
     BACKGROUND = np.array([0,0,0,0,1], dtype=np.float32)
+    DATA_FORMAT = 'channels_last'
 
     def __init__(self, img_dir, labels_dir, split=0.8, batch_size=25):
         all_imgs = os.listdir(img_dir)
@@ -63,10 +64,21 @@ class Dataset:
         if self._train is None:
             training_data = self.train_data.map(Dataset.tf_prep_input)
             training_data = training_data.map(Dataset.preprocess_train)
+            if Dataset.DATA_FORMAT == 'channels_first':
+                training_data = training_data.map(Dataset.transpose_dataset)
+
             training_data = training_data.batch(self.batch_size)
             self._train = training_data
+            self._train_iter = self._train.make_one_shot_iterator()
 
-        return self._train.make_one_shot_iterator()
+
+        try :
+            return self._train_iter.get_next()
+        except tf.errors.OutOfRangeError:
+            self._train_iter = self._train.shuffle().make_one_shot_iterator()
+            return self._train_iter.get_next()
+
+
 
 
     @property
@@ -74,10 +86,18 @@ class Dataset:
         if self._test is None:
             test_data = self.test_data.map(Dataset.tf_prep_input)
             test_data = test_data.map(Dataset.preprocess_test)
+            if Dataset.DATA_FORMAT == 'channels_first':
+                test_data = test_data.map(Dataset.transpose_dataset)
+
             test_data = test_data.batch(self.batch_size)
             self._test = test_data
+            self._test_iter = self._test.make_one_shot_iterator()
 
-        return self._test.make_one_shot_iterator()
+        try:
+            return self._test.make_one_shot_iterator()
+        except tf.errors.OutOfRangeError:
+            self._test_iter = self._test.make_one_shot_iterator()
+            return self._test_iter.get_next()
 
     @staticmethod
     def tf_prep_input(x, y, segmap):
@@ -160,6 +180,12 @@ class Dataset:
 
         return t
 
+    @staticmethod
+    def transpose_dataset(x, y):
+        x = tf.transpose(x, perm=[0, 3, 1, 2])
+        y = tf.transpose(y, perm=[0, 3, 1, 2])
+
+        return x, y
 
 def main():
     info = f"""

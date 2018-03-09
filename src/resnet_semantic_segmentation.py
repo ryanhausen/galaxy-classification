@@ -179,16 +179,24 @@ class Model:
 
     @property
     def train(self):
-        x, y = self.dataset.train.get_next()
+        x, y = self.dataset.train
         logits = self.graph(x)
 
         with tf.variable_scope('optimization'):
             loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=y)
-            optimize = (self.optimizer)(loss)
+            optimize = self.optimizer(loss)
 
         with tf.variable_scope('metrics'):
             self.train_metrics(tf.nn.softmax(logits), y)
+
+    @property
+    def test(self):
+        x, y = self.dataset.test
+        yh = tf.nn.softmax(self.graph(x))
+
+        with tf.variable_scope('metrics'):
+            self.test_metrics(yh, y)
 
     @property
     def train_metrics(self):
@@ -241,9 +249,6 @@ class Model:
     def inference(self):
         return self.graph
 
-    @property
-    def test(self):
-        None
 
 def main():
     info = f"""
@@ -257,20 +262,18 @@ def main():
     tf.logging.set_verbosity(tf.logging.DEBUG)
     print(info)
 
-    in_shape = [5,40,40,1]
-    expect_out_shape = [5,40,40,5]
+    in_shape = [5,1,40,40]
+    expect_out_shape = [5,5,40,40]
 
     x = tf.placeholder(tf.float32, shape=in_shape)
 
     mock_dataset = types.SimpleNamespace(NUM_CLASSES=5)
-    Model.DATA_FORMAT = 'channels_last'
+    Model.DATA_FORMAT = 'channels_first'
     m = Model(mock_dataset, True)
-    
+
     out = m.graph(x)
 
     assert out.shape.as_list()==expect_out_shape, "Incorrect Shape"
-
-    # TODO write a test using a placeholder?
 
 if __name__=='__main__':
     main()
