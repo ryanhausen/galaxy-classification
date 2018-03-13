@@ -1,5 +1,17 @@
 import tensorflow as tf
 
+def configured_session():
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    return tf.Session(config=config)
+
+def fetch_iters():
+    init = tf.constant_initializer(1, dtype=tf.int32)
+    return tf.get_variable('iters',
+                           initializer=init,
+                           dtype=tf.int32,
+                           trainable=False,
+                           shape=[])
 
 def print_total_params(print_function=tf.logging.info):
     """

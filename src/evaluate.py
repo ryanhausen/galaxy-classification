@@ -26,7 +26,7 @@ def rmse(yh, ys):
     return tf.sqrt(tf.reduce_mean(tf.squared_difference(yh,ys)), name='RMSE')
 
 def cross_entropy(yh, ys):
-    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=yh, labels=ys), name='CROSS-ENTROPY')
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=yh, labels=ys), name='CROSS-ENTROPY')
 
 def weighted_cross_entropy(yh, ys):
     loss_weights = tf.subtract(1.0, tf.reduce_max(tf.multiply(0.8, ys), axis=-1))
@@ -171,23 +171,17 @@ def plot_confusion_matrix(ys, yh, tensor_name='MyFigure/image', normalize=True):
     return summary
 
 
-def evaluate_tensorboard(logit_y,ys):
-
-    if len(logit_y.shape.as_list()) > 2:
-        logit_y = tf.reshape(logit_y, [-1, 6])
-        ys = tf.reshape(ys, [-1, 6])
-
-    yh = tf.nn.softmax(logit_y)
+def evaluate_tensorboard(logits,ys):
+    yh = tf.nn.softmax(logits)
     tf.summary.scalar('top_1', top_1(yh, ys))
     tf.summary.scalar('top_2', top_2(yh, ys))
-    tf.summary.scalar('cross_entropy', cross_entropy(logit_y, ys))
-    tf.summary.scalar('weighted_cross_entropy', weighted_cross_entropy(logit_y, ys))
+    tf.summary.scalar('cross_entropy', cross_entropy(logits, ys))
+    tf.summary.scalar('weighted_cross_entropy', weighted_cross_entropy(logits, ys))
     tf.summary.scalar('Spheroid', single_class_accuracy(yh,ys,0))
     tf.summary.scalar('Disk', single_class_accuracy(yh,ys,1))
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))
     tf.summary.scalar('Point_Source', single_class_accuracy(yh,ys,3))
-    tf.summary.scalar('Unknown', single_class_accuracy(yh,ys,4))
-    tf.summary.scalar('Background', single_class_accuracy(yh,ys,5))
+    tf.summary.scalar('Background', single_class_accuracy(yh,ys,4))
 
     # bounds = np.linspace(0, 1, 11)
     # for b in zip(bounds[:-1], bounds[1:]):
@@ -201,10 +195,7 @@ def evaluate_tensorboard(logit_y,ys):
     # c_matrix = tf.cast(tf.confusion_matrix(c_ys, c_yh, num_classes=6), tf.float16)
     # tf.summary.image('Confusion_Matrix', tf.reshape(c_matrix, [1, 6, 6, 1]))
 
-def tensorboard_confusion_matrix(logit_y, ys):
-    logit_y = logit_y[0]
-    ys = ys.reshape([-1, 6])
-
+def tensorboard_confusion_matrix(logits, ys):
     c_ys = np.argmax(ys, axis=1)
-    c_yh = np.argmax(logit_y, axis=1)
+    c_yh = np.argmax(logits, axis=1)
     return plot_confusion_matrix(c_ys, c_yh)

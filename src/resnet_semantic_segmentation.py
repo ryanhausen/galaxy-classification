@@ -15,7 +15,7 @@ class Model:
     def __init__(self, dataset, is_training):
         self.dataset = dataset
         self.is_training = is_training
-        self.num_classes = dataset.NUM_CLASSES
+        self.num_classes = dataset.NUM_LABELS
 
         self._graph = None
         self._train = None
@@ -26,9 +26,7 @@ class Model:
         self._train_metrics = None
         self._test_metrics = None
 
-
-    @property
-    def graph(self):
+    def graph(self, x):
         if self._graph:
             return self._graph
 
@@ -107,7 +105,7 @@ class Model:
             return x
 
         self._graph = model_fn
-        return self._graph
+        return self._graph(x)
 
     @staticmethod
     def down_sample(x):
@@ -176,78 +174,63 @@ class Model:
     def up_project(x):
         return Model.up_sample(x)
 
-
-    @property
     def train(self):
         x, y = self.dataset.train
         logits = self.graph(x)
 
-        with tf.variable_scope('optimization'):
-            loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
-                                                              labels=y)
-            optimize = self.optimizer(loss)
+        loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
+                                                            labels=y)
+        optimize = self.optimizer(loss)
 
-        with tf.variable_scope('metrics'):
-            self.train_metrics(tf.nn.softmax(logits), y)
+        metrics = self.train_metrics(logits, y)
 
-    @property
+        return optimize, metrics
+
     def test(self):
         x, y = self.dataset.test
-        yh = tf.nn.softmax(self.graph(x))
 
-        with tf.variable_scope('metrics'):
-            self.test_metrics(yh, y)
+        logits = self.graph(x)
 
-    @property
-    def train_metrics(self):
+        metrics = self.test_metrics(logits, y)
+
+        return logits, metrics
+
+    def train_metrics(self, logits, y):
         if self._train_metrics:
-            return self._train_metrics
+            return self._train_metrics(logits, y)
 
-        def f(yh, ys):
+        def f(logits, ys):
             log.warn('No training metrics set')
+            return logits, ys
 
         self._train_metrics = f
 
-        return self._train_metrics
+        return self._train_metrics(logits, y)
 
-    @train_metrics.setter
-    def train_metrics(self, value):
-        self._train_metrics = value
-
-    @property
-    def test_metrics(self):
+    def test_metrics(self, logits, y):
         if self._test_metrics:
-            return self._test_metrics
+            return self._test_metrics(logits, y)
 
-        def f(yh, ys):
+        def f(logits, y):
             log.warn('No testing metrics set')
+            return tf.constant(0)
 
         self._test_metrics = f
-        return self.test_metrics
+        return self._test_metrics(logits, y)
 
-    @test_metrics.setter
-    def test_metrics(self, value):
-        self._test_metrics = value
-
-    @property
-    def optimizer(self):
+    def optimizer(self, loss):
         if self._optimizer:
-            return self._optimizer
+            return self._optimizer(loss)
 
         def optimize(loss):
             log.warn('No optimizer set')
 
         self._optimizer = optimize
 
-        return self._optimizer
+        return self._optimizer(loss)
 
-    @optimizer.setter
-    def optimizer(self, value):
-        self._optimizer = value
-
-    @property
-    def inference(self):
-        return self.graph
+    def inference(self, x):
+        return tf.nn.softmax(self.graph(x))
 
 
 def main():
@@ -267,7 +250,7 @@ def main():
 
     x = tf.placeholder(tf.float32, shape=in_shape)
 
-    mock_dataset = types.SimpleNamespace(NUM_CLASSES=5)
+    mock_dataset = types.SimpleNamespace(NUM_LABELS=5)
     Model.DATA_FORMAT = 'channels_first'
     m = Model(mock_dataset, True)
 

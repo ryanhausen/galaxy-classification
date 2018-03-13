@@ -14,6 +14,8 @@ class Dataset:
     NUM_LABELS = 5
     BACKGROUND = np.array([0,0,0,0,1], dtype=np.float32)
     DATA_FORMAT = 'channels_last'
+    NUM_REPEAT = 1
+
 
     def __init__(self, img_dir, labels_dir, split=0.8, batch_size=25):
         all_imgs = os.listdir(img_dir)
@@ -62,24 +64,21 @@ class Dataset:
     @property
     def train(self):
         if self._train is None:
-            training_data = self.train_data.map(Dataset.tf_prep_input)
-            training_data = training_data.map(Dataset.preprocess_train)
+            self._train = self.train_data.map(Dataset.tf_prep_input)
+            self._train = self._train.map(Dataset.preprocess_train)
             if Dataset.DATA_FORMAT == 'channels_first':
-                training_data = training_data.map(Dataset.transpose_dataset)
+                self._train = self._train.map(Dataset.transpose_dataset)
+            self.reset_train()
 
-            training_data = training_data.batch(self.batch_size)
-            self._train = training_data
-            self._train_iter = self._train.make_one_shot_iterator()
+        x, y = self._train_iter.get_next()
+        tf.summary.image('Input Image', x)
 
+        return x, y
 
-        try :
-            return self._train_iter.get_next()
-        except tf.errors.OutOfRangeError:
-            self._train_iter = self._train.shuffle().make_one_shot_iterator()
-            return self._train_iter.get_next()
-
-
-
+    def reset_train(self):
+        training_data = self._train.shuffle(self.batch_size*10)
+        training_data = self._train.batch(self.batch_size)
+        self._train_iter = training_data.make_one_shot_iterator()
 
     @property
     def test(self):
@@ -189,7 +188,7 @@ class Dataset:
 
 def main():
     info = f"""
-    CANDELS Morphological Classification -- Semantic Segmentation
+    CANDELS Morphological ptimization/MomentumClassification -- Semantic Segmentation
     DATASET
     -- X:   [{Dataset.IMG_OUT}, {Dataset.IMG_OUT}, 1]
     -- Y:   [Spheroid, Disk, Irregular, Point Source, Background]
