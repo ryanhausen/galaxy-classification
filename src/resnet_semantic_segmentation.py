@@ -27,8 +27,9 @@ class Model:
         self._test_metrics = None
 
     def graph(self, x):
+        print(self._graph)
         if self._graph:
-            return self._graph
+            return self._graph(x)
 
         def log_shape(s, b, x):
             shp_str = str(x.shape.as_list())
@@ -36,18 +37,21 @@ class Model:
 
         concat_axis = 1 if Model.DATA_FORMAT=='channels_first' else 3
 
-        def model_fn(x):
-            log.debug('[input]::{}'.format(x.shape.as_list()))
+        def model_fn(_x):
+            log.debug('[input]::{}'.format(_x.shape.as_list()))
 
+            tf.summary.histogram('x-in', _x)
             with tf.variable_scope('in_conv'):
-                x = conv2d(x,
+                _x = conv2d(_x,
                            Model.INIT_FILTERS,
                            3,
                            kernel_initializer=var_init(),
                            padding='same',
-                           data_format=Model.DATA_FORMAT)
+                           data_format=Model.DATA_FORMAT,
+                           activation=tf.nn.relu)
 
-                log.debug('[in_conv]::{}'.format(x.shape.as_list()))
+                log.debug('[in_conv]::{}'.format(_x.shape.as_list()))
+            tf.summary.histogram('x-conv1', _x)
 
             # encoder
             encoded = []
@@ -55,54 +59,57 @@ class Model:
                 with tf.variable_scope('segment{}'.format(s_idx)):
                     for b_idx in range(Model.BLOCK_CONFIG[s_idx]):
                         with tf.variable_scope('block{}'.format(b_idx)):
-                            log_shape(s_idx, b_idx, x)
+                            log_shape(s_idx, b_idx, _x)
 
                             if b_idx==0 and s_idx>0:
-                                resample_op = Model.down_sample(x)
-                                projection_op = Model.down_project(x)
+                                resample_op = Model.down_sample(_x)
+                                projection_op = Model.down_project(_x)
                             else:
                                 resample_op = None
                                 projection_op = None
 
-                            x = resnet.block(x=x,
-                                             is_training=self.is_training,
-                                             projection_op=projection_op,
-                                             resample_op=resample_op,
-                                             data_format=Model.DATA_FORMAT)
-                encoded.append(x)
+                            _x = resnet.block(x=_x,
+                                              is_training=self.is_training,
+                                              projection_op=projection_op,
+                                              resample_op=resample_op,
+                                              data_format=Model.DATA_FORMAT)
+                            tf.summary.histogram('x-{}{}'.format(s_idx, b_idx), _x)
+                encoded.append(_x)
 
             # decoder
             for s_idx in range(-1, -(len(Model.BLOCK_CONFIG)+1), -1):
                 with tf.variable_scope('segment{}'.format(s_idx)):
-                    x = tf.concat([x, encoded[s_idx]], concat_axis)
+                    _x = tf.concat([_x, encoded[s_idx]], concat_axis)
 
-                    for b_idx in range(-1, -(Model.BLOCK_CONFIG[s_idx]+1), -1):
+                    for b_idx in range(0, Model.BLOCK_CONFIG[s_idx]+1):
                         with tf.variable_scope('block{}'.format(b_idx)):
-                            log_shape(s_idx, b_idx, x)
+                            log_shape(s_idx, b_idx, _x)
 
-                            if b_idx==-1 and s_idx>-4:
-                                resample_op = Model.up_sample(x)
-                                projection_op = Model.up_project(x)
+                            if b_idx==0 and s_idx>-4:
+                                resample_op = Model.up_sample(_x)
+                                projection_op = Model.up_project(_x)
                             else:
                                 resample_op = None
                                 projection_op = None
 
-                            x = resnet.block(x=x,
-                                            is_training=self.is_training,
-                                            projection_op=projection_op,
-                                            resample_op=resample_op,
-                                            data_format=Model.DATA_FORMAT)
+                            _x = resnet.block(x=_x,
+                                              is_training=self.is_training,
+                                              projection_op=projection_op,
+                                              resample_op=resample_op,
+                                              data_format=Model.DATA_FORMAT)
+                            tf.summary.histogram('x-{}{}'.format(s_idx, b_idx), _x)
 
             with tf.variable_scope('out_conv'):
-                x = conv2d(x,
-                           self.num_classes,
-                           1,
-                           kernel_initializer=var_init(),
-                           padding='same',
-                           data_format=Model.DATA_FORMAT)
-                log.debug('[out_conv]::{}'.format(x.shape.as_list()))
+                _x = conv2d(_x,
+                            self.num_classes,
+                            1,
+                            kernel_initializer=var_init(),
+                            padding='same',
+                            data_format=Model.DATA_FORMAT)
+                log.debug('[out_conv]::{}'.format(_x.shape.as_list()))
 
-            return x
+            tf.summary.histogram('x-out-conv', _x)
+            return _x
 
         self._graph = model_fn
         return self._graph(x)
@@ -150,7 +157,13 @@ class Model:
     @staticmethod
     def up_sample(x):
         def _f(_x):
-            w, h = _x.shape.as_list()[1:3]
+            _, w, h, c = _x.shape.as_list()
+
+            _x = conv2d(_x,
+                        c//2,
+                        1,
+                        use_bias=False)
+
             _x = tf.image.resize_images(_x,
                                         (w*2, h*2),
                                         method=tf.image.ResizeMethod.BICUBIC)

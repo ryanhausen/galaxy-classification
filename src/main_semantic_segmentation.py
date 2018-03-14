@@ -10,7 +10,6 @@ import evaluate
 def main():
     tf.logging.set_verbosity(tf.logging.DEBUG)
 
-
     # parse params
     DATA_FORMAT = 'channels_last'
     TRAIN_DIR = '../report/tf-log/train/'
@@ -24,20 +23,29 @@ def main():
 
 
 
-
-
-
-
     # setup training graph
     tf.reset_default_graph()
+    Dataset.NUM_REPEAT = 2
     dataset = Dataset(data_dir, label_dir, batch_size=64)
     iters = fetch_iters()
 
-    opt = tf.train.AdamOptimizer(0.0001)
+    opt = tf.train.AdamOptimizer(0.00001)
     def optimizer(loss):
-        grads = opt.compute_gradients(loss)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            grads = opt.compute_gradients(loss)
         with tf.name_scope('clipping'):
-            grads = [(tf.clip_by_value(grad, -1.5, 1.5), var) for grad,var in grads if grad is not None]
+            clipped_grads = []
+            for grad, var in grads:
+                if grad is not None:
+                    grad = tf.clip_by_value(grad, -1.0, 1.0)
+                    #tf.summary.histogram(var.name, grad)
+
+                else:
+                    print(var)
+
+                clipped_grads.append((grad, var))
+
         return opt.apply_gradients(grads, global_step=iters)
 
     def train_metrics(logits, y):
@@ -48,7 +56,7 @@ def main():
             evaluate.evaluate_tensorboard(logits, y)
             #evaluate.tensorboard_confusion_matrix(logits, y)
 
-            return tf.constant(0)
+            return logits, y
 
     Model.DATA_FORMAT = 'channels_last'
     model = Model(dataset, True)
@@ -79,14 +87,15 @@ def main():
             log.info('ITER::{}'.format(current_iter))
 
             try:
-                if current_iter % 10 ==0:
+                if current_iter % 1 == 0:
                     log.info('Evaluating...')
-                    _, s = sess.run([train, summaries])
+                    t, s = sess.run([train, summaries])
+                    print(t)
                     writer.add_summary(s, current_iter)
                 else:
                     sess.run([train])
             except tf.errors.OutOfRangeError:
-                dataset.reset_train()
+                break
 
             if current_iter % 100 == 0:
                 break

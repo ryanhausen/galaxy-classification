@@ -171,12 +171,14 @@ def plot_confusion_matrix(ys, yh, tensor_name='MyFigure/image', normalize=True):
     return summary
 
 
-def evaluate_tensorboard(logits,ys):
-    yh = tf.nn.softmax(logits)
+def evaluate_tensorboard(logit_y,ys):
+
+
+    yh = tf.nn.softmax(logit_y)
     tf.summary.scalar('top_1', top_1(yh, ys))
     tf.summary.scalar('top_2', top_2(yh, ys))
-    tf.summary.scalar('cross_entropy', cross_entropy(logits, ys))
-    tf.summary.scalar('weighted_cross_entropy', weighted_cross_entropy(logits, ys))
+    tf.summary.scalar('cross_entropy', cross_entropy(logit_y, ys))
+    tf.summary.scalar('weighted_cross_entropy', weighted_cross_entropy(logit_y, ys))
     tf.summary.scalar('Spheroid', single_class_accuracy(yh,ys,0))
     tf.summary.scalar('Disk', single_class_accuracy(yh,ys,1))
     tf.summary.scalar('Irregular', single_class_accuracy(yh,ys,2))

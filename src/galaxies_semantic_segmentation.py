@@ -8,7 +8,7 @@ import tensorflow as tf
 
 class Dataset:
     IMG_IN = 84
-    PRE_PAD = 10
+    PRE_PAD = 4
     IMG_OUT = 40
     IN_CHANNELS = 4
     NUM_LABELS = 5
@@ -66,19 +66,21 @@ class Dataset:
         if self._train is None:
             self._train = self.train_data.map(Dataset.tf_prep_input)
             self._train = self._train.map(Dataset.preprocess_train)
+
             if Dataset.DATA_FORMAT == 'channels_first':
                 self._train = self._train.map(Dataset.transpose_dataset)
-            self.reset_train()
+
+            #training_data = self._train.shuffle(self.batch_size*10)
+            training_data = self._train.batch(self.batch_size)
+            self._train_iter = training_data.make_one_shot_iterator()
 
         x, y = self._train_iter.get_next()
+        tf.summary.histogram('x-from iter', x)
         tf.summary.image('Input Image', x)
+        segmap = tf.cast(tf.argmax(y, -1), dtype=tf.uint8)[:,:,:,tf.newaxis]
+        tf.summary.image('Segmap', (-10 * segmap) + 50)
 
         return x, y
-
-    def reset_train(self):
-        training_data = self._train.shuffle(self.batch_size*10)
-        training_data = self._train.batch(self.batch_size)
-        self._train_iter = training_data.make_one_shot_iterator()
 
     @property
     def test(self):
@@ -92,11 +94,13 @@ class Dataset:
             self._test = test_data
             self._test_iter = self._test.make_one_shot_iterator()
 
-        try:
-            return self._test.make_one_shot_iterator()
-        except tf.errors.OutOfRangeError:
-            self._test_iter = self._test.make_one_shot_iterator()
-            return self._test_iter.get_next()
+        x, y = self._test_iter.get_next()
+        tf.summary.histogram('x-from iter', x)
+        tf.summary.image('Input Image', x)
+        segmap = tf.cast(tf.argmax(y, -1), dtype=tf.uint8)[:,:,:,tf.newaxis]
+        tf.summary.image('Segmap', (-10 * segmap) + 50)
+
+        return x, y
 
     @staticmethod
     def tf_prep_input(x, y, segmap):
@@ -138,21 +142,28 @@ class Dataset:
     def _preprocess_data(x, y, is_training):
         # concatenate the arrays together so that they are changed the same
         t = tf.concat([x, y], axis=-1)
+        tf.summary.histogram('xy-concat', t)
 
         if is_training:
             t = Dataset._augment(t)
 
+        tf.summary.histogram('xy-after-augment', t)
+
         t = Dataset._crop(t, is_training)
+
+        tf.summary.histogram('xy-after-crop', t)
 
         # split them back up
         x, y = t[:,:,:4], t[:,:,4:]
+
+        tf.summary.histogram('x-after-split', x)
 
         return (Dataset._stadardize(x), y)
 
     @staticmethod
     def _augment(t):
         angle = tf.random_uniform([1], maxval=360)
-        t = tf.contrib.image.rotate(t, angle, interpolation='BILINEAR')
+        t = tf.contrib.image.rotate(t, angle, interpolation='NEAREST')
         t = tf.image.random_flip_left_right(t)
         t = tf.image.random_flip_up_down(t)
 
@@ -160,12 +171,24 @@ class Dataset:
 
     @staticmethod
     def _stadardize(x):
+        tf.summary.histogram('x-before-standardization', x)
         x = tf.image.per_image_standardization(x)
-        x = tf.reduce_mean(x, axis=2)
-
+        tf.summary.histogram('x-after-standardization', x)
+        x = tf.reduce_mean(x, axis=-1, keepdims=True)
+        tf.summary.histogram('x-after-mean', x)
         # taking the mean across channels collapses the last dimension.
         # has to be readded to have the proper rank
-        return x[:,:,tf.newaxis]
+        return x
+
+    @staticmethod
+    def _fill_background(y):
+        highest_prob_per_pixel = tf.reduce_max(y, axis=-1, keepdims=True)
+        bkg_pos = tf.ones_like(highest_prob_per_pixel)
+        bkg_neg = tf.zeros_like(highest_prob_per_pixel)
+
+        bkg_actual = tf.where(highest_prob_per_pixel>0, bkg_neg, bkg_pos)
+
+        return tf.concat([y[:,:,:,:-1], bkg_actual], -1)
 
     @staticmethod
     def _crop(t, is_training):
@@ -201,15 +224,26 @@ def main():
 
     dataset = Dataset(data_dir, label_dir)
 
+    t = dataset.train
+    s = tf.summary.merge_all()
     print(info)
     with tf.Session() as sess:
         print('Asserting train shape')
-        x, y = sess.run(dataset.train.get_next())
+
+        for i in range(88):
+            print(i)
+            sess.run([t, s])
+
+
+
+
         assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
         assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
 
+
+
         print('Asserting test shape')
-        x, y = sess.run(dataset.test.get_next())
+        x, y = sess.run(dataset.test)
         assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
         assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
 
