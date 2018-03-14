@@ -3,6 +3,7 @@ import types
 import tensorflow as tf
 from tf_src import resnet
 from tf_src import tf_logger as log
+from evaluate import weighted_cross_entropy
 
 var_init = tf.variance_scaling_initializer
 conv2d = tf.layers.conv2d
@@ -40,7 +41,6 @@ class Model:
         def model_fn(_x):
             log.debug('[input]::{}'.format(_x.shape.as_list()))
 
-            tf.summary.histogram('x-in', _x)
             with tf.variable_scope('in_conv'):
                 _x = conv2d(_x,
                            Model.INIT_FILTERS,
@@ -51,7 +51,6 @@ class Model:
                            activation=tf.nn.relu)
 
                 log.debug('[in_conv]::{}'.format(_x.shape.as_list()))
-            tf.summary.histogram('x-conv1', _x)
 
             # encoder
             encoded = []
@@ -73,7 +72,6 @@ class Model:
                                               projection_op=projection_op,
                                               resample_op=resample_op,
                                               data_format=Model.DATA_FORMAT)
-                            tf.summary.histogram('x-{}{}'.format(s_idx, b_idx), _x)
                 encoded.append(_x)
 
             # decoder
@@ -97,7 +95,6 @@ class Model:
                                               projection_op=projection_op,
                                               resample_op=resample_op,
                                               data_format=Model.DATA_FORMAT)
-                            tf.summary.histogram('x-{}{}'.format(s_idx, b_idx), _x)
 
             with tf.variable_scope('out_conv'):
                 _x = conv2d(_x,
@@ -108,7 +105,6 @@ class Model:
                             data_format=Model.DATA_FORMAT)
                 log.debug('[out_conv]::{}'.format(_x.shape.as_list()))
 
-            tf.summary.histogram('x-out-conv', _x)
             return _x
 
         self._graph = model_fn
@@ -187,12 +183,22 @@ class Model:
     def up_project(x):
         return Model.up_sample(x)
 
+    @staticmethod
+    def _segmap(y):
+        y = tf.cast(tf.argmax(y, -1), dtype=tf.uint8)[:,:,:,tf.newaxis]
+        return (-10 * y) + 50
+
     def train(self):
         x, y = self.dataset.train
         logits = self.graph(x)
 
-        loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
-                                                            labels=y)
+        tf.summary.image('input_image', x)
+        tf.summary.image('output', Model._segmap(tf.nn.softmax(logits)))
+        tf.summary.image('label', Model._segmap(y))
+
+        loss = weighted_cross_entropy(logits, y)
+        # loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
+        #                                                     labels=y)
         optimize = self.optimizer(loss)
 
         metrics = self.train_metrics(logits, y)

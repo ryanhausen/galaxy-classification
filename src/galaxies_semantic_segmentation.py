@@ -8,8 +8,9 @@ import tensorflow as tf
 
 class Dataset:
     IMG_IN = 84
-    PRE_PAD = 4
+    PRE_PAD = 0
     IMG_OUT = 40
+    TRAIN_REDUCE_CROP = 60
     IN_CHANNELS = 4
     NUM_LABELS = 5
     BACKGROUND = np.array([0,0,0,0,1], dtype=np.float32)
@@ -51,9 +52,6 @@ class Dataset:
             lbl_id = 'GDS_{}'.format(i.replace('.fits', ''))
             lbl = labels.loc[labels['ID']==lbl_id, lbl_columns].values.flatten()
 
-            # add background
-            lbl = np.pad(lbl, (0,1), mode='constant').astype(np.float32)
-
             s_file = 'GDS_{}_segmap.fits'.format(i.replace('.fits', ''))
             s_file = os.path.join(labels_dir, 'segmaps', s_file)
 
@@ -70,15 +68,12 @@ class Dataset:
             if Dataset.DATA_FORMAT == 'channels_first':
                 self._train = self._train.map(Dataset.transpose_dataset)
 
-            #training_data = self._train.shuffle(self.batch_size*10)
+            training_data = self._train.shuffle(self.batch_size*10)
+            training_data = self._train.repeat(Dataset.NUM_REPEAT)
             training_data = self._train.batch(self.batch_size)
             self._train_iter = training_data.make_one_shot_iterator()
 
         x, y = self._train_iter.get_next()
-        tf.summary.histogram('x-from iter', x)
-        tf.summary.image('Input Image', x)
-        segmap = tf.cast(tf.argmax(y, -1), dtype=tf.uint8)[:,:,:,tf.newaxis]
-        tf.summary.image('Segmap', (-10 * segmap) + 50)
 
         return x, y
 
@@ -95,10 +90,6 @@ class Dataset:
             self._test_iter = self._test.make_one_shot_iterator()
 
         x, y = self._test_iter.get_next()
-        tf.summary.histogram('x-from iter', x)
-        tf.summary.image('Input Image', x)
-        segmap = tf.cast(tf.argmax(y, -1), dtype=tf.uint8)[:,:,:,tf.newaxis]
-        tf.summary.image('Segmap', (-10 * segmap) + 50)
 
         return x, y
 
@@ -106,7 +97,7 @@ class Dataset:
     def tf_prep_input(x, y, segmap):
         x, y = tf.py_func(Dataset.prep_input, [x, y, segmap], (tf.float32, tf.float32))
         x.set_shape([Dataset.IMG_IN, Dataset.IMG_IN, Dataset.IN_CHANNELS])
-        y.set_shape([Dataset.IMG_IN, Dataset.IMG_IN, Dataset.NUM_LABELS])
+        y.set_shape([Dataset.IMG_IN, Dataset.IMG_IN, Dataset.NUM_LABELS-1])
         return x, y
 
     @staticmethod
@@ -117,9 +108,8 @@ class Dataset:
         segmap = Dataset._safe_fits_open(segmap_file)
         img_id = int(segmap_file.split('_')[-2])
 
-        y = np.zeros([Dataset.IMG_IN, Dataset.IMG_IN, Dataset.NUM_LABELS], dtype=np.float32)
+        y = np.zeros([Dataset.IMG_IN, Dataset.IMG_IN, lbl.shape[0]], dtype=np.float32)
         y[segmap==img_id] = lbl
-        y[segmap!=img_id] = Dataset.BACKGROUND
 
         return [x, y]
 
@@ -142,23 +132,19 @@ class Dataset:
     def _preprocess_data(x, y, is_training):
         # concatenate the arrays together so that they are changed the same
         t = tf.concat([x, y], axis=-1)
-        tf.summary.histogram('xy-concat', t)
 
         if is_training:
             t = Dataset._augment(t)
 
-        tf.summary.histogram('xy-after-augment', t)
-
         t = Dataset._crop(t, is_training)
-
-        tf.summary.histogram('xy-after-crop', t)
 
         # split them back up
         x, y = t[:,:,:4], t[:,:,4:]
 
-        tf.summary.histogram('x-after-split', x)
+        x = Dataset._standardize(x)
+        y = Dataset._add_background(y)
 
-        return (Dataset._stadardize(x), y)
+        return (x, y)
 
     @staticmethod
     def _augment(t):
@@ -170,35 +156,35 @@ class Dataset:
         return t
 
     @staticmethod
-    def _stadardize(x):
-        tf.summary.histogram('x-before-standardization', x)
+    def _standardize(x):
         x = tf.image.per_image_standardization(x)
-        tf.summary.histogram('x-after-standardization', x)
         x = tf.reduce_mean(x, axis=-1, keepdims=True)
-        tf.summary.histogram('x-after-mean', x)
         # taking the mean across channels collapses the last dimension.
-        # has to be readded to have the proper rank
         return x
 
     @staticmethod
-    def _fill_background(y):
+    def _add_background(y):
         highest_prob_per_pixel = tf.reduce_max(y, axis=-1, keepdims=True)
         bkg_pos = tf.ones_like(highest_prob_per_pixel)
         bkg_neg = tf.zeros_like(highest_prob_per_pixel)
-
         bkg_actual = tf.where(highest_prob_per_pixel>0, bkg_neg, bkg_pos)
 
-        return tf.concat([y[:,:,:,:-1], bkg_actual], -1)
+        y = tf.concat([y, bkg_actual], -1)
+
+        return y
 
     @staticmethod
     def _crop(t, is_training):
+        out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, t.shape.as_list()[-1]]
+
         if is_training:
-            pad_v = Dataset.IMG_IN + Dataset.PRE_PAD
-            out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, t.shape.as_list()[-1]]
-            t = tf.image.resize_image_with_crop_or_pad(t, pad_v, pad_v)
+            # reduce the iamge size  so that random crops are less likely
+            # to exlude the entire source
+            t = tf.image.central_crop(t, Dataset.TRAIN_REDUCE_CROP/Dataset.IMG_IN)
             t = tf.random_crop(t, out_shape)
         else:
             t = tf.image.central_crop(t, Dataset.IMG_OUT/Dataset.IMG_IN)
+            t.set_shape(out_shape)
 
         return t
 
@@ -222,29 +208,21 @@ def main():
     data_dir = '../data/imgs'
     label_dir = '../data/labels'
 
-    dataset = Dataset(data_dir, label_dir)
+    dataset = Dataset(data_dir, label_dir, batch_size=25)
+    expected_x = (dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
+    expected_y = (dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, Dataset.NUM_LABELS)
 
-    t = dataset.train
-    s = tf.summary.merge_all()
     print(info)
     with tf.Session() as sess:
+
         print('Asserting train shape')
-
-        for i in range(88):
-            print(i)
-            sess.run([t, s])
-
-
-
-
-        assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
-        assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
-
-
+        x, y = sess.run(dataset.train)
+        assert x.shape==expected_x
+        assert y.shape==expected_y
 
         print('Asserting test shape')
         x, y = sess.run(dataset.test)
-        assert x.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 1)
-        assert y.shape==(dataset.batch_size, Dataset.IMG_OUT, Dataset.IMG_OUT, 5)
+        assert x.shape==expected_x
+        assert y.shape==expected_y
 
 if __name__ == "__main__": main()
