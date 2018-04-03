@@ -64,7 +64,7 @@ class ResNetMapper(object):
         with tf.variable_scope('out_conv'):
             log.debug('out_conv')
             x = conv2d(x,
-                       6,
+                       5,
                        (1,1),
                        biases_initializer=None,
                        weights_initializer=variance_scaling_initializer(),

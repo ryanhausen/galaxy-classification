@@ -15,7 +15,7 @@ def main():
     TRAIN_DIR = '../report/tf-log/train/'
     TEST_DIR = '../report/tf-log/test/'
     MAX_ITERS = 10000
-    BATCH_SIZE = 64
+    BATCH_SIZE = 75
     data_dir = '../data/imgs'
     label_dir = '../data/labels'
     model_dir = '../models/curr/'
@@ -31,7 +31,9 @@ def main():
         dataset = Dataset(data_dir, label_dir, batch_size=BATCH_SIZE)
         iters = fetch_iters()
 
-        opt = tf.train.AdamOptimizer(0.001)
+        learning_rate = tf.train.exponential_decay(0.001, iters, 5000, 0.96)
+
+        opt = tf.train.AdamOptimizer(learning_rate)
         def optimizer(loss):
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
@@ -92,18 +94,19 @@ def main():
                         _, s = sess.run([train, summaries])
                         writer.add_summary(s, current_iter)
                         log.info('Saving')
-                        saver.save(sess, model_dir)
+                        save_name = '{}.ckpt'.format(Model.NAME)
+                        saver.save(sess, os.path.join(model_dir, save_name))
                     else:
                         sess.run([train])
                 except tf.errors.OutOfRangeError:
                     log.info('Training Iter Complete')
                     log.info('Saving')
-                    saver.save(sess, model_dir)
+                    saver.save(sess, model_dir, global_step=iters)
                     break
 
         # destroy graph/session/saver
         tf.reset_default_graph()
-        dataset = Dataset(data_dir, label_dir, batch_size=64)
+        dataset = Dataset(data_dir, label_dir, batch_size=128)
         iters = fetch_iters()
 
         def test_metrics(logits, y):
@@ -132,7 +135,7 @@ def main():
 
             writer = tf.summary.FileWriter(TEST_DIR, graph=sess.graph)
 
-            _, s = sess.run([test, metrics])
+            _, s = sess.run([test, summaries])
 
             writer.add_summary(s, current_iter)
 

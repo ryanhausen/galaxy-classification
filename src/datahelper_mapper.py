@@ -32,7 +32,7 @@ class DataHelper(object):
         self._build_iters(self._train_sources)
 
     def next_batch(self, count:int, training:bool, even_class_dist:bool):
-        lbl_columns = ['ClSph', 'ClDk', 'ClIr', 'ClPS', 'ClUn']
+        lbl_columns = ['ClSph', 'ClDk', 'ClIr', 'ClPS']
         crop = self.out_size//2 if self.out_size else 22
 
         if training:
@@ -62,7 +62,7 @@ class DataHelper(object):
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, lbl_columns]
                 lbl = np.concatenate([lbl.values.reshape(len(lbl_columns)),
                                      np.zeros(1)])
-                bkg_lbl = np.array([0, 0, 0, 0, 0, 1])
+                bkg_lbl = np.array([0, 0, 0, 0, 1])
 
                 segmap = s_id + '_segmap.fits'
                 segmap = self._safe_fits(os.path.join(self._segmaps_dir,segmap))
@@ -71,7 +71,7 @@ class DataHelper(object):
 
                 s_id = int(s_id.split('_')[-1])
 
-                y_tmp = np.zeros(list(segmap.shape) + [6])
+                y_tmp = np.zeros(list(segmap.shape) + [5])
                 y_tmp[segmap==s_id,:] = lbl
                 y_tmp[segmap!=s_id,:] = bkg_lbl
                 # ==============================================================
@@ -100,7 +100,7 @@ class DataHelper(object):
                 lbl = self._lbls.loc[self._lbls['ID']==s_id, lbl_columns]
                 lbl = np.concatenate([lbl.values.reshape(len(lbl_columns)),
                                      np.zeros(1)])
-                bkg_lbl = np.array([0, 0, 0, 0, 0, 1])
+                bkg_lbl = np.array([0, 0, 0, 0, 1])
 
                 segmap = s_id + '_segmap.fits'
                 segmap = self._safe_fits(os.path.join(self._segmaps_dir,segmap))
@@ -108,7 +108,7 @@ class DataHelper(object):
 
                 s_id = int(s_id.split('_')[-1])
 
-                y_tmp = np.zeros(list(segmap.shape) + [6])
+                y_tmp = np.zeros(list(segmap.shape) + [5])
                 y_tmp[segmap==s_id,:] = lbl
                 y_tmp[segmap!=s_id,:] = bkg_lbl
 
@@ -118,7 +118,7 @@ class DataHelper(object):
             return np.array(x), np.array(y)
 
     def _build_iters(self, img_file_names):
-        lbl_columns = ['ClSph', 'ClDk', 'ClIr', 'ClPS', 'ClUn']
+        lbl_columns = ['ClSph', 'ClDk', 'ClIr', 'ClPS']
 
 
         self.train_count = 0
@@ -206,14 +206,13 @@ class DataHelper(object):
 
     def _source_name_server(self, count, even_dist=False):
         if even_dist:
-            num_classes = 5
+            num_classes = 4
             img_names = []
 
             class_iters = [self.sph_iter,
                            self.dk_iter,
                            self.irr_iter,
-                           self.ps_iter,
-                           self.unk_iter]
+                           self.ps_iter]
 
             for i in range(count//num_classes):
                 for coll in class_iters:

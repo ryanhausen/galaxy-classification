@@ -133,7 +133,7 @@ def save(outs, save_to):
 
 #https://stackoverflow.com/a/48030258
 def plot_confusion_matrix(ys, yh, tensor_name='MyFigure/image', normalize=True):
-    labels = ['Spheroid', 'Disk', 'Irregular', 'Point Source', 'Unknown', 'Background']
+    labels = ['Spheroid', 'Disk', 'Irregular', 'Point Source', 'Background']
 
     cm = confusion_matrix(ys, yh)
     if normalize:
@@ -172,7 +172,8 @@ def plot_confusion_matrix(ys, yh, tensor_name='MyFigure/image', normalize=True):
 
 
 def evaluate_tensorboard(logit_y,ys):
-
+    logit_y = tf.reshape(logit_y, [-1,5])
+    ys = tf.reshape(ys, [-1,5])
 
     yh = tf.nn.softmax(logit_y)
     tf.summary.scalar('top_1', top_1(yh, ys))
@@ -198,6 +199,6 @@ def evaluate_tensorboard(logit_y,ys):
     # tf.summary.image('Confusion_Matrix', tf.reshape(c_matrix, [1, 6, 6, 1]))
 
 def tensorboard_confusion_matrix(logits, ys):
-    c_ys = np.argmax(ys, axis=1)
-    c_yh = np.argmax(logits, axis=1)
+    c_ys = np.argmax(ys.reshape([-1,5]), axis=-1)
+    c_yh = np.argmax(logits.reshape([-1,5]), axis=-1)
     return plot_confusion_matrix(c_ys, c_yh)

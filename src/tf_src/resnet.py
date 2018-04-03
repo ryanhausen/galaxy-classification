@@ -46,7 +46,7 @@ def block_op(*ignore, x=None,
 
     x = batch_norm(x,
                    momentum=BATCH_NORM_MOMENTUM,
-                   scale=activation==tf.nn.relu,
+                   scale=not activation==tf.nn.relu, # don't scale if ReLU, see docs
                    fused=True,
                    axis=1 if data_format=='channels_first' else 3,
                    training=is_training)
@@ -81,7 +81,7 @@ def block(*ignore, x=None,
     init_conv = resample_op if resample_op else standard_conv
 
     with tf.variable_scope('block_op1'):
-        fx = block_op(x=fx, 
+        fx = block_op(x=fx,
                       is_training=is_training,
                       weight_op=init_conv,
                       data_format=data_format)

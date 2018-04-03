@@ -18,7 +18,7 @@ iters = tf.Variable(1, trainable=False)
 
 img_size = params['crop_size']
 x = tf.placeholder(tf.float32, [None,img_size,img_size,1])
-y = tf.placeholder(tf.float32, [None,img_size,img_size,6])
+y = tf.placeholder(tf.float32, [None,img_size,img_size,5])
 
 
 
@@ -62,7 +62,12 @@ config.gpu_options.allow_growth = True
 print_total_params()
 
 with tf.Session(config=config) as sess:
-    sess.run(init)
+    if 'checkpoint' not in os.listdir(params['model_dir']):
+        log.info('Initializing model...')
+        sess.run(init)
+    else:
+        log.info('Restoring model...')
+        saver.restore(sess, tf.train.latest_checkpoint(params['model_dir']))
 
     trainWriter = tf.summary.FileWriter(params['tf_train_dir'], graph=sess.graph)
     testWriter = tf.summary.FileWriter(params['tf_test_dir'], graph=sess.graph)
@@ -81,7 +86,7 @@ with tf.Session(config=config) as sess:
             s = sess.run(summaries, feed_dict=batch)
             trainWriter.add_summary(s, current_iter)
 
-            yhs = sess.run([tf.reshape(tf.nn.softmax(net), [-1,6])], feed_dict={x:xs})
+            yhs = sess.run(net, feed_dict={x:xs})
             cm = evaluate.tensorboard_confusion_matrix(yhs, ys)
             trainWriter.add_summary(cm, current_iter)
 
@@ -93,7 +98,7 @@ with tf.Session(config=config) as sess:
             s = sess.run(summaries, feed_dict=test_data)
             testWriter.add_summary(s, current_iter)
 
-            test_yhs = sess.run([tf.reshape(tf.nn.softmax(net), [-1,6])], feed_dict={x:test_xs})
+            test_yhs = sess.run(tf.reshape(tf.nn.softmax(net), [-1,5]), feed_dict={x:test_xs})
             cm = evaluate.tensorboard_confusion_matrix(test_yhs, test_ys)
             testWriter.add_summary(cm, current_iter)
 

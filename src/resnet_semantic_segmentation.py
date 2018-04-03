@@ -9,6 +9,7 @@ var_init = tf.variance_scaling_initializer
 conv2d = tf.layers.conv2d
 
 class Model:
+    NAME = 'resnet_semantic_segmentation'
     DATA_FORMAT = 'channels_first'
     INIT_FILTERS = 4
     BLOCK_CONFIG = [2, 4, 4, 8]
@@ -28,7 +29,6 @@ class Model:
         self._test_metrics = None
 
     def graph(self, x):
-        print(self._graph)
         if self._graph:
             return self._graph(x)
 
@@ -61,8 +61,8 @@ class Model:
                             log_shape(s_idx, b_idx, _x)
 
                             if b_idx==0 and s_idx>0:
-                                resample_op = Model.down_sample(_x)
-                                projection_op = Model.down_project(_x)
+                                resample_op = Model.down_sample
+                                projection_op = Model.down_project
                             else:
                                 resample_op = None
                                 projection_op = None
@@ -84,8 +84,8 @@ class Model:
                             log_shape(s_idx, b_idx, _x)
 
                             if b_idx==0 and s_idx>-4:
-                                resample_op = Model.up_sample(_x)
-                                projection_op = Model.up_project(_x)
+                                resample_op = Model.up_sample
+                                projection_op = Model.up_project
                             else:
                                 resample_op = None
                                 projection_op = None
@@ -119,17 +119,15 @@ class Model:
             ch_idx = 3
             pad_shape = [[0, 0], [1, 1], [1, 1], [0, 0]]
 
-
         num_filters = x.shape.as_list()[ch_idx] * 2
-        def f(_x):
-            _x = tf.pad(x, pad_shape)
-            _x = resnet.block_conv(x=_x,
-                                   filters=num_filters,
-                                   stride=2,
-                                   padding='valid',
-                                   data_format=Model.DATA_FORMAT)
-            return _x
-        return f
+
+        x = tf.pad(x, pad_shape)
+        x = resnet.block_conv(x=x,
+                              filters=num_filters,
+                              stride=2,
+                              padding='valid',
+                              data_format=Model.DATA_FORMAT)
+        return x
 
     @staticmethod
     def down_project(x):
@@ -139,20 +137,25 @@ class Model:
             ch_idx = 3
 
         num_filters = x.shape.as_list()[ch_idx] * 2
-        def f(_x):
-            _x = resnet.block_conv(x=_x,
-                                   filters=num_filters,
-                                   stride=2,
-                                   kernel_size=1,
-                                   padding='valid',
-                                   data_format=Model.DATA_FORMAT)
-            return _x
 
-        return f
+        x = resnet.block_conv(x=x,
+                              filters=num_filters,
+                              stride=2,
+                              kernel_size=1,
+                              padding='valid',
+                              data_format=Model.DATA_FORMAT)
+        return x
 
     @staticmethod
     def up_sample(x):
-        def _f(_x):
+        def wrap_tranpose(f, _x):
+            _x = tf.transpose(_x, [0, 2, 3, 1])
+            _x = f(_x)
+            _x = tf.transpose(_x, [0, 3, 1, 2])
+
+            return _x
+
+        def f(_x):
             _, w, h, c = _x.shape.as_list()
 
             _x = conv2d(_x,
@@ -167,17 +170,9 @@ class Model:
 
 
         if Model.DATA_FORMAT=='channels_first':
-            def f(_x):
-                _x = tf.transpose(_x, [0, 2, 3, 1])
-                _x = _f(_x)
-                _x = tf.transpose(_x, [0, 3, 1, 2])
-
-                return _x
+            return wrap_tranpose(f, x)
         else:
-            def f(_x):
-                return _f(_x)
-
-        return f
+            return f(x)
 
     @staticmethod
     def up_project(x):
@@ -193,7 +188,7 @@ class Model:
         logits = self.graph(x)
 
         tf.summary.image('input_image', x)
-        tf.summary.image('output', Model._segmap(tf.nn.softmax(logits)))
+        tf.summary.image('output', Model._segmap(logits))
         tf.summary.image('label', Model._segmap(y))
 
         loss = weighted_cross_entropy(logits, y)
@@ -207,8 +202,11 @@ class Model:
 
     def test(self):
         x, y = self.dataset.test
-
         logits = self.graph(x)
+
+        tf.summary.image('input_image', x)
+        tf.summary.image('output', Model._segmap(logits))
+        tf.summary.image('label', Model._segmap(y))
 
         metrics = self.test_metrics(logits, y)
 
