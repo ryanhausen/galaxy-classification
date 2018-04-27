@@ -24,6 +24,7 @@ class Model:
         self._optimizer = None
         self._test = None
         self._inference = None
+        self._loss_func = None
 
         self._train_metrics = None
         self._test_metrics = None
@@ -168,7 +169,6 @@ class Model:
                                         method=tf.image.ResizeMethod.BICUBIC)
             return _x
 
-
         if Model.DATA_FORMAT=='channels_first':
             return wrap_tranpose(f, x)
         else:
@@ -191,10 +191,7 @@ class Model:
         tf.summary.image('output', Model._segmap(logits))
         tf.summary.image('label', Model._segmap(y))
 
-        loss = weighted_cross_entropy(logits, y)
-        # loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
-        #                                                     labels=y)
-        optimize = self.optimizer(loss)
+        optimize = self.optimizer(self.loss_func(logits, y))
 
         metrics = self.train_metrics(logits, y)
 
@@ -245,6 +242,19 @@ class Model:
         self._optimizer = optimize
 
         return self._optimizer(loss)
+
+    def loss_func(self, x, y):
+        if self._loss_func:
+            return self._loss_func(x, y)
+
+        def f(self, x, y):
+            log.warn('Using default loss cross entropy')
+            return tf.nn.softmax_cross_entropy_with_logits_v2(logits=x,
+                                                              labels=y)
+
+        self._loss_func = f
+
+        return self._loss_func(x, y)
 
     def inference(self, x):
         return tf.nn.softmax(self.graph(x))
