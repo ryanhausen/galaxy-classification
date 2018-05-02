@@ -20,7 +20,7 @@ def main():
         'label_dir':'../data/labels',
         'model_dir':'../models/curr/',
         'display_iters':10,
-        'test_iters':10,
+        'test_iters':100,
         'epochs':1,
         'xentropy_coefficient':1,
         'dice_coefficient':1,
@@ -52,16 +52,11 @@ def train(params):
         xentropy_loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=flat_logits,
                                                                   labels=flat_y)
 
-        log.info('Loss Shape:{}'.format(xentropy_loss.shape.as_list()))
         # class coeffecients, different from the paper above we don't have
         # one-hot classes per pixel and so instead of a hard count, we'll
         # used an expected pixel account
         dominant_class = tf.argmax(flat_y, axis=1, output_type=tf.int32)
-        log.info('dominant_class Shape:{}'.format(dominant_class.shape.as_list()))
-
         p_dominant_class = tf.reduce_max(flat_y, axis=1)
-
-        log.info('p_dominant Shape:{}'.format(p_dominant_class.shape.as_list()))
 
         class_coefficient = tf.zeros_like(xentropy_loss)
         for output_class_idx in range(5):
@@ -121,7 +116,6 @@ def train(params):
                 lbls = tf.reshape(y[:,-1,:,:], [-1])
                 predictions = tf.reshape(tf.nn.softmax(logits, axis=1)[:,-1,:,:], [-1])
 
-            log.info('iou shapes {} and {}'.format(lbls.shape.as_list(), predictions.shape.as_list()))
             for threshold in params['iou_thresholds']:
                 preds = tf.cast(tf.greater_equal(predictions, threshold), tf.int32)
                 name = 'iou-{}'.format(threshold)
@@ -186,7 +180,9 @@ def train(params):
                     writer.add_summary(s, current_iter)
                     log.info('Saving')
                     save_name = '{}.ckpt'.format(Model.NAME)
-                    saver.save(sess, os.path.join(params['model_dir'], save_name))
+                    saver.save(sess,
+                               os.path.join(params['model_dir'], save_name),
+                               global_step=iters)
                 else:
                     sess.run([train])
             except tf.errors.OutOfRangeError:
@@ -216,7 +212,6 @@ def test(params):
                 lbls = tf.reshape(y[:,-1,:,:], [-1])
                 predictions = tf.reshape(tf.nn.softmax(logits, axis=1)[:,-1,:,:], [-1])
 
-            log.info('iou shapes {} and {}'.format(lbls.shape.as_list(), predictions.shape.as_list()))
             for threshold in params['iou_thresholds']:
                 preds = tf.cast(tf.greater_equal(predictions, threshold), tf.int32)
                 name = 'iou-{}'.format(threshold)
@@ -266,14 +261,14 @@ def test(params):
 
         # go through the whole test set
         try:
+            run_ops = [test] + list(running_metrics.values())
             while True:
-                run_ops = [test] + list(running_metrics.values())
                 sess.run([run_ops])
         except tf.errors.OutOfRangeError:
             pass
 
-        s = sess.run([summaries])
-        writer.add_summary(s, iters)
+        s = sess.run(summaries)
+        writer.add_summary(s, iters.eval())
 
 if __name__=='__main__':
     main()

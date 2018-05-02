@@ -7,11 +7,12 @@ from evaluate import weighted_cross_entropy
 
 var_init = tf.variance_scaling_initializer
 conv2d = tf.layers.conv2d
+t_conv2d = tf.layers.conv2d_transpose
 
 class Model:
     NAME = 'resnet_semantic_segmentation'
     DATA_FORMAT = 'channels_first'
-    INIT_FILTERS = 4
+    INIT_FILTERS = 32
     BLOCK_CONFIG = [2, 4, 4, 8]
 
     def __init__(self, dataset, is_training):
@@ -137,7 +138,7 @@ class Model:
         else:
             ch_idx = 3
 
-        num_filters = x.shape.as_list()[ch_idx] * 2
+        num_filters = x.shape.as_list()[ch_idx] // 2
 
         x = resnet.block_conv(x=x,
                               filters=num_filters,
@@ -159,14 +160,14 @@ class Model:
         def f(_x):
             _, w, h, c = _x.shape.as_list()
 
-            _x = conv2d(_x,
-                        c//2,
-                        1,
-                        use_bias=False)
+            # _x = conv2d(_x,
+            #             c//2,
+            #             1,
+            #             use_bias=False)
 
             _x = tf.image.resize_images(_x,
                                         (w*2, h*2),
-                                        method=tf.image.ResizeMethod.BICUBIC)
+                                        method=tf.image.ResizeMethod.BILINEAR)
             return _x
 
         if Model.DATA_FORMAT=='channels_first':
@@ -201,9 +202,9 @@ class Model:
         x, y = self.dataset.test
         logits = self.graph(x)
 
-        tf.summary.image('input_image', x)
-        tf.summary.image('output', Model._segmap(logits))
-        tf.summary.image('label', Model._segmap(y))
+        #tf.summary.image('input_image', x)
+        #tf.summary.image('output', Model._segmap(logits))
+        #tf.summary.image('label', Model._segmap(y))
 
         metrics = self.test_metrics(logits, y)
 
