@@ -16,7 +16,7 @@ def main():
         'test_dir':'../report/tf-log/test/',
         'max_iters':10000,
         'batch_size':75,
-        'init_learning_rate':1e-6,
+        'init_learning_rate':1e-3,
         'data_dir':'../data/imgs',
         'label_dir':'../data/labels',
         'model_dir':'../models/curr/',
@@ -25,14 +25,51 @@ def main():
         'epochs':1,
         'xentropy_coefficient':1,
         'dice_coefficient':1,
-        'block_config':[2,2,4,8],
-        'iou_thresholds':[0.9, 0.8, 0.7, 0.6]
+        'block_config':[2,2,4,8]
     }
 
     current_iter = 0
     while (current_iter < params['max_iters']):
         current_iter = train(params)
         test(params)
+
+def eval_metrics(yh, y):
+    """
+    yh: network output [n,h,w,c]
+    y:  labels         [n,h,w,c]
+    """
+
+    thresholds = [0.5, 0.6, 0.7, 0.8, 0.9]
+    classes = ['spheroid', 'disk', 'irregular', 'point_source', 'background']
+
+    running_ops = []
+    with tf.name_scope('metrics'):
+
+        # Cacluate the mean IOU for background/not background at each threshold
+        yh_bkg = tf.reshape(tf.nn.sigmoid(yh[:,:,:,-1]), [-1])
+        y_bkg = tf.reshape(y[:,:,:,-1], [-1])
+        for threshold in thresholds:
+            name = 'iou-{}'.format(threshold)
+            preds = tf.cast(tf.greater_equal(yh_bkg, threshold), tf.int32)
+            metric, update_op = tf.metrics.mean_iou(y_bkg, preds, 2, name=name)
+            running_ops.append(update_op)
+            tf.summary.scalar(name, metric)
+
+        # Calculate the accuracy per class per pixel
+        y = tf.reshape(y, [-1, 5])
+        yh = tf.reshape(yh, [-1, 5])
+        lbls = tf.arg_max(y, 1)
+        preds = tf.argmax(yh, 1)
+        for i, c in enumerate(classes):
+            name = '{}-accuracy'.format(c)
+            in_c = tf.equal(lbls, i)
+            metric, update_op = tf.metrics.accuracy(lbls, preds, weights=in_c)
+            running_ops.append(update_op)
+            tf.summary.scalar(name, metric)
+
+
+    return running_ops
+
 
 def train(params):
     tf.reset_default_graph()
@@ -48,6 +85,7 @@ def train(params):
 
     # https://arxiv.org/pdf/1701.08816.pdf eq 3, 4, 7, and 8
     def loss_func(logits, y):
+
         # softmax loss, per pixel
         flat_logits = tf.reshape(logits, [-1, 5])
         flat_y = tf.reshape(y, [-1, 5])
@@ -89,10 +127,11 @@ def train(params):
         total_loss = params['xentropy_coefficient'] * weighted_xentropy_loss
         total_loss = total_loss + params['dice_coefficient'] * (1-dice_loss)
 
-        tf.summary.scalar('Cross Entropy', tf.reduce_mean(xentropy_loss))
-        tf.summary.scalar('Weighted Entropy', weighted_xentropy_loss)
-        tf.summary.scalar('Dice Loss', dice_loss)
-        tf.summary.scalar('Total Loss', total_loss)
+        with tf.name_scope('loss'):
+            tf.summary.scalar('Cross Entropy', tf.reduce_mean(xentropy_loss))
+            tf.summary.scalar('Weighted Entropy', weighted_xentropy_loss)
+            tf.summary.scalar('Dice Loss', dice_loss)
+            tf.summary.scalar('Total Loss', total_loss)
 
         return total_loss
 
@@ -106,40 +145,20 @@ def train(params):
                 for g, v in gradients:
                     g = tf.clip_by_value(g, -10, 10)
                     clipped.append((g, v))
-                    tf.summary.histogram(v.name, g)
 
         return opt.apply_gradients(clipped, global_step=iters)
 
 
-    running_metrics = dict()
+    running_metrics = []
     def train_metrics(logits, y):
-        with tf.name_scope('metrics'):
-            if params['data_format']=='channels_last':
-                lbls = tf.reshape(y[:,:,:,-1], [-1])
-                predictions = tf.reshape(tf.nn.softmax(logits)[:,:,:,-1], [-1])
-            else:
-                lbls = tf.reshape(y[:,-1,:,:], [-1])
-                predictions = tf.reshape(tf.nn.softmax(logits, axis=1)[:,-1,:,:], [-1])
+        if params['data_format']=='channels_first':
+            _logits = tf.transpose(logits, [0,2,3,1])
+            _y = tf.transpose(y, [0,2,3,1])
+            running_metrics = eval_metrics(_logits, _y)
+        else:
+            running_metrics = eval_metrics(logits, y)
 
-            for threshold in params['iou_thresholds']:
-                preds = tf.cast(tf.greater_equal(predictions, threshold), tf.int32)
-                name = 'iou-{}'.format(threshold)
-                mean_iou, mean_iou_update = tf.metrics.mean_iou(lbls,
-                                                                preds,
-                                                                2,
-                                                                name=name)
-
-                running_metrics[name] = mean_iou_update
-                tf.summary.scalar('mean-iou-{}'.format(threshold), mean_iou)
-
-            flat_y = tf.reshape(y, [-1,Dataset.NUM_LABELS])
-            flat_logits = tf.reshape(logits, [-1,Dataset.NUM_LABELS])
-            xentropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=flat_y,
-                                                                  logits=flat_logits)
-
-            tf.summary.scalar('cross-entropy', tf.reduce_mean(xentropy))
-
-            return logits, y
+        return logits, y
 
     Model.DATA_FORMAT = params['data_format']
     Model.BLOCK_CONFIG = params['block_config']
@@ -152,7 +171,7 @@ def train(params):
     summaries = tf.summary.merge_all()
 
     metric_vars = []
-    for name in running_metrics.keys():
+    for name in running_metrics:
         metric_vars.extend(tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,
                                              scope='metrics/{}'.format(name)))
     metric_reset = tf.variables_initializer(metric_vars)
@@ -180,7 +199,7 @@ def train(params):
                 if current_iter % 10 == 0:
                     log.info('Evaluating...')
                     sess.run(metric_reset)
-                    run_ops = [train] + list(running_metrics.values())
+                    run_ops = [train] + running_metrics
                     sess.run(run_ops)
                     s = sess.run(summaries)
                     writer.add_summary(s, current_iter)
@@ -208,42 +227,16 @@ def test(params):
                       batch_size=params['batch_size'])
     iters = fetch_iters()
 
-    running_metrics = dict()
+    running_metrics = []
     def test_metrics(logits, y):
-        with tf.name_scope('metrics'):
-            if params['data_format']=='channels_last':
-                lbls = tf.reshape(y[:,:,:,-1], [-1])
-                predictions = tf.reshape(tf.nn.softmax(logits)[:,:,:,-1], [-1])
-            else:
-                lbls = tf.reshape(y[:,-1,:,:], [-1])
-                predictions = tf.reshape(tf.nn.softmax(logits, axis=1)[:,-1,:,:], [-1])
+        if params['data_format']=='channels_first':
+            _logits = tf.transpose(logits, [0,2,3,1])
+            _y = tf.transpose(y, [0,2,3,1])
+            running_metrics = eval_metrics(_logits, _y)
+        else:
+            running_metrics = eval_metrics(logits, y)
 
-            for threshold in params['iou_thresholds']:
-                preds = tf.cast(tf.greater_equal(predictions, threshold), tf.int32)
-                name = 'iou-{}'.format(threshold)
-                mean_iou, mean_iou_update = tf.metrics.mean_iou(lbls,
-                                                                preds,
-                                                                2,
-                                                                name=name)
-
-                running_metrics[name] = mean_iou_update
-                tf.summary.scalar('mean-iou-{}'.format(threshold), mean_iou)
-
-            flat_y = tf.reshape(y, [-1,Dataset.NUM_LABELS])
-            flat_logits = tf.reshape(logits, [-1,Dataset.NUM_LABELS])
-            class_labels = tf.argmax(flat_y)
-            class_preds = tf.argmax(flat_logits)
-            acc, acc_update = tf.metrics.mean_per_class_accuracy(class_labels,
-                                                                 class_preds,
-                                                                 5)
-            running_metrics['acc'] = acc_update
-
-            #morphs =['Spheroid', 'Disk', 'Irregular', 'Point Source', 'Background']
-            #for i, m in enumerate(morphs):
-            #    tf.summary.scalar('accuracy-{}'.format(m), acc[i])
-            tf.summary.scalar('accuracy-class', acc)
-
-            return logits, y
+        return logits, y
 
     Model.DATA_FORMAT = params['data_format']
     model = Model(dataset, False)
@@ -267,7 +260,7 @@ def test(params):
 
         # go through the whole test set
         try:
-            run_ops = [test] + list(running_metrics.values())
+            run_ops = [test] + running_metrics
             while True:
                 sess.run([run_ops])
         except tf.errors.OutOfRangeError:
