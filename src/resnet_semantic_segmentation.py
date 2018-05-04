@@ -6,14 +6,15 @@ from tf_src import tf_logger as log
 from evaluate import weighted_cross_entropy
 
 var_init = tf.variance_scaling_initializer
+#var_init = tf.contrib.layers.xavier_initializer_conv2d
 conv2d = tf.layers.conv2d
-t_conv2d = tf.layers.conv2d_transpose
+conv2d_t = tf.layers.conv2d_transpose
 
 class Model:
     NAME = 'resnet_semantic_segmentation'
     DATA_FORMAT = 'channels_first'
     INIT_FILTERS = 32
-    BLOCK_CONFIG = [2, 4, 4, 8]
+    BLOCK_CONFIG = [1, 1, 1, 1]
 
     def __init__(self, dataset, is_training):
         self.dataset = dataset
@@ -52,6 +53,8 @@ class Model:
                            data_format=Model.DATA_FORMAT,
                            activation=tf.nn.relu)
 
+                _x = tf.check_numerics(_x, 'Input has invalid values')
+
                 log.debug('[in_conv]::{}'.format(_x.shape.as_list()))
 
             # encoder
@@ -74,6 +77,8 @@ class Model:
                                               projection_op=projection_op,
                                               resample_op=resample_op,
                                               data_format=Model.DATA_FORMAT)
+
+                            _x = tf.check_numerics(_x, 'block{}'.format(b_idx))
                 encoded.append(_x)
 
             # decoder
@@ -98,6 +103,8 @@ class Model:
                                               resample_op=resample_op,
                                               data_format=Model.DATA_FORMAT)
 
+                            _x = tf.check_numerics(_x, 'block{}'.format(b_idx))
+
             with tf.variable_scope('out_conv'):
                 _x = conv2d(_x,
                             self.num_classes,
@@ -106,6 +113,7 @@ class Model:
                             padding='same',
                             data_format=Model.DATA_FORMAT)
                 log.debug('[out_conv]::{}'.format(_x.shape.as_list()))
+                _x = tf.check_numerics(_x, 'out_conv')
 
             return _x
 
@@ -121,7 +129,7 @@ class Model:
             ch_idx = 3
             pad_shape = [[0, 0], [1, 1], [1, 1], [0, 0]]
 
-        num_filters = x.shape.as_list()[ch_idx] * 2
+        num_filters = x.shape.as_list()[ch_idx] // 2
 
         x = tf.pad(x, pad_shape)
         x = resnet.block_conv(x=x,
@@ -160,14 +168,25 @@ class Model:
         def f(_x):
             _, w, h, c = _x.shape.as_list()
 
-            # _x = conv2d(_x,
-            #             c//2,
-            #             1,
-            #             use_bias=False)
-
             _x = tf.image.resize_images(_x,
                                         (w*2, h*2),
                                         method=tf.image.ResizeMethod.BILINEAR)
+
+            _x = conv2d(_x,
+                        c,
+                        1,
+                        use_bias=False)
+
+            return _x
+
+        def g(_x):
+            _, w, h, c = _x.shape.as_list()
+
+            _x = conv2d_t(_x,
+                          int(c*1.25),
+                          3,
+                          strides=2,
+                          use_bias=True)[:,:-1,:-1,:]
             return _x
 
         if Model.DATA_FORMAT=='channels_first':

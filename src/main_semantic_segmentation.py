@@ -1,7 +1,7 @@
 import os
 from tf_src import tf_logger as log
 from galaxies_semantic_segmentation import Dataset
-from resnet_semantic_segmentation import Model
+from convnet_semantic_segmentation import Model
 from tf_src.utils import configured_session, fetch_iters
 import tensorflow as tf
 
@@ -16,6 +16,7 @@ def main():
         'test_dir':'../report/tf-log/test/',
         'max_iters':10000,
         'batch_size':75,
+        'init_learning_rate':1e-6,
         'data_dir':'../data/imgs',
         'label_dir':'../data/labels',
         'model_dir':'../models/curr/',
@@ -24,6 +25,7 @@ def main():
         'epochs':1,
         'xentropy_coefficient':1,
         'dice_coefficient':1,
+        'block_config':[2,2,4,8],
         'iou_thresholds':[0.9, 0.8, 0.7, 0.6]
     }
 
@@ -41,7 +43,7 @@ def train(params):
                       batch_size=params['batch_size'])
     iters = fetch_iters()
 
-    learning_rate = tf.train.exponential_decay(0.001, iters, 5000, 0.96)
+    learning_rate = tf.train.exponential_decay(params['init_learning_rate'], iters, 5000, 0.96)
     opt = tf.train.AdamOptimizer(learning_rate)
 
     # https://arxiv.org/pdf/1701.08816.pdf eq 3, 4, 7, and 8
@@ -87,23 +89,26 @@ def train(params):
         total_loss = params['xentropy_coefficient'] * weighted_xentropy_loss
         total_loss = total_loss + params['dice_coefficient'] * (1-dice_loss)
 
+        tf.summary.scalar('Cross Entropy', tf.reduce_mean(xentropy_loss))
+        tf.summary.scalar('Weighted Entropy', weighted_xentropy_loss)
+        tf.summary.scalar('Dice Loss', dice_loss)
+        tf.summary.scalar('Total Loss', total_loss)
+
         return total_loss
 
     def optimizer(loss):
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            grads = opt.compute_gradients(loss)
+            gradients = opt.compute_gradients(loss)
         with tf.name_scope('clipping'):
-            clipped_grads = []
-            for grad, var in grads:
-                if grad is not None:
-                    grad = tf.clip_by_value(grad, -1.0, 1.0)
-                else:
-                    log.warn('No grad for {}'.format(var.name))
+            clipped = []
+            with tf.name_scope('gradients'):
+                for g, v in gradients:
+                    g = tf.clip_by_value(g, -10, 10)
+                    clipped.append((g, v))
+                    tf.summary.histogram(v.name, g)
 
-                clipped_grads.append((grad, var))
-
-        return opt.apply_gradients(grads, global_step=iters)
+        return opt.apply_gradients(clipped, global_step=iters)
 
 
     running_metrics = dict()
@@ -137,6 +142,7 @@ def train(params):
             return logits, y
 
     Model.DATA_FORMAT = params['data_format']
+    Model.BLOCK_CONFIG = params['block_config']
     model = Model(dataset, True)
     model.optimizer = optimizer
     model.train_metrics = train_metrics

@@ -20,3 +20,6 @@ def warn(msg):
 
 def error(msg):
     tf.logging.error(red(msg))
+
+def tensor_shape(t, logging_func=debug):
+    logging_func('[{}]::{}'.format(t.name, t.shape.as_list()))
