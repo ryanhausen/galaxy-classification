@@ -42,7 +42,7 @@ def eval_metrics(yh, y):
     thresholds = [0.5, 0.6, 0.7, 0.8, 0.9]
     classes = ['spheroid', 'disk', 'irregular', 'point_source', 'background']
 
-    running_ops = []
+    running_ops = dict()
     with tf.name_scope('metrics'):
 
         # Cacluate the mean IOU for background/not background at each threshold
@@ -52,19 +52,19 @@ def eval_metrics(yh, y):
             name = 'iou-{}'.format(threshold)
             preds = tf.cast(tf.greater_equal(yh_bkg, threshold), tf.int32)
             metric, update_op = tf.metrics.mean_iou(y_bkg, preds, 2, name=name)
-            running_ops.append(update_op)
+            running_ops[name] = update_op
             tf.summary.scalar(name, metric)
 
         # Calculate the accuracy per class per pixel
         y = tf.reshape(y, [-1, 5])
         yh = tf.reshape(yh, [-1, 5])
-        lbls = tf.arg_max(y, 1)
+        lbls = tf.argmax(y, 1)
         preds = tf.argmax(yh, 1)
         for i, c in enumerate(classes):
             name = '{}-accuracy'.format(c)
             in_c = tf.equal(lbls, i)
-            metric, update_op = tf.metrics.accuracy(lbls, preds, weights=in_c)
-            running_ops.append(update_op)
+            metric, update_op = tf.metrics.accuracy(lbls, preds, weights=in_c, name=name)
+            running_ops[name] = update_op
             tf.summary.scalar(name, metric)
 
 
@@ -149,7 +149,7 @@ def train(params):
         return opt.apply_gradients(clipped, global_step=iters)
 
 
-    running_metrics = []
+    running_metrics = dict()
     def train_metrics(logits, y):
         if params['data_format']=='channels_first':
             _logits = tf.transpose(logits, [0,2,3,1])
@@ -170,10 +170,7 @@ def train(params):
     train = model.train()
     summaries = tf.summary.merge_all()
 
-    metric_vars = []
-    for name in running_metrics:
-        metric_vars.extend(tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,
-                                             scope='metrics/{}'.format(name)))
+    metric_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope='metrics/*')
     metric_reset = tf.variables_initializer(metric_vars)
     # start training
     log.info('Training...')
@@ -199,7 +196,7 @@ def train(params):
                 if current_iter % 10 == 0:
                     log.info('Evaluating...')
                     sess.run(metric_reset)
-                    run_ops = [train] + running_metrics
+                    run_ops = [train] + list(running_metrics.values())
                     sess.run(run_ops)
                     s = sess.run(summaries)
                     writer.add_summary(s, current_iter)
@@ -227,7 +224,7 @@ def test(params):
                       batch_size=params['batch_size'])
     iters = fetch_iters()
 
-    running_metrics = []
+    running_metrics = dict()
     def test_metrics(logits, y):
         if params['data_format']=='channels_first':
             _logits = tf.transpose(logits, [0,2,3,1])
@@ -245,7 +242,9 @@ def test(params):
     test, _ = model.test()
     summaries = tf.summary.merge_all()
 
-    metric_reset = tf.variables_initializer(tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope='metrics'))
+
+    metric_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope='metrics/*')
+    metric_reset = tf.variables_initializer(metric_vars)
 
     # restore graph
     log.info('Testing...')
@@ -260,7 +259,7 @@ def test(params):
 
         # go through the whole test set
         try:
-            run_ops = [test] + running_metrics
+            run_ops = [test] + list(running_metrics.values())
             while True:
                 sess.run([run_ops])
         except tf.errors.OutOfRangeError:
