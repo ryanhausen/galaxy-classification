@@ -11,7 +11,12 @@ from astropy.io import fits
 # Working with large fits files
 # http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html
 
-def classify_img(*ignore, h='h.fits', j='j.fits', v='v.fits', z='z.fits'):
+def classify_img(*ignore,
+                 h='h.fits',
+                 j='j.fits',
+                 v='v.fits',
+                 z='z.fits',
+                 batch_size=10):
     naxis1, naxis2 = _validate_args(ignore, h, j, v, z)
 
     # create fits files to fill with values
@@ -31,9 +36,16 @@ def classify_img(*ignore, h='h.fits', j='j.fits', v='v.fits', z='z.fits'):
     for f in f_names:
         _create_file(f, naxis1, naxis2, np.float32)
 
-    
+    _create_file(n, naxis1, naxis2, np.int16)
 
-    
+    for y in range(naxis1):
+        for x in range(naxis2):
+            None
+            # open batch_size number of slices
+            # classify batch
+            # consider, indexing?
+            # be aware of when to finalize variance.
+
 
 
 
@@ -67,19 +79,44 @@ def _validate_args(ignore, h, j, v, z):
         hdul.close()
     return naxis1, naxis2
 
+def get_updates(n, x_n, prev_var, prev_mean, final, unbiased_est=True):
+    curr_mean = _iterative_mean(n, prev_mean, x_n)
+
+    curr_var = _iterative_variance(n,
+                                   prev_var,
+                                   x_n,
+                                   prev_mean,
+                                   curr_mean,
+                                   final,
+                                   unbiased_est)
+
+    return curr_mean, curr_var
+
+
+
 # http://people.ds.cam.ac.uk/fanf2/hermes/doc/antiforgery/stats.pdf, eq. 4
 def _iterative_mean(n, prev_mean, x_n):
     return prev_mean + (x_n - prev_mean)/n
 
+
 # http://people.ds.cam.ac.uk/fanf2/hermes/doc/antiforgery/stats.pdf, eq. 24
-def _iterative_variance(n, prev_var, x_n, prev_mean, curr_mean, unbiased_est):
+def _iterative_variance(n,
+                        prev_var,
+                        x_n,
+                        prev_mean,
+                        curr_mean,
+                        final,
+                        unbiased_est):
     var = prev_var + (x_n - prev_mean) * (x_n - curr_mean)
 
-    if unbiased_est:
-        # http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.214.8508&rep=rep1&type=pdf, eq. II.2 (right after)
-        return 1/(n-1) * var
-    else:
-        return var
+    if final:
+        if unbiased_est:
+            # http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.214.8508&rep=rep1&type=pdf, eq. II.2 (right after)
+            return var/(n-1)
+        else:
+            return var/n
+
+    return var
 
 # http://docs.astropy.org/en/stable/generated/examples/io/skip_create-large-fits.html
 def _create_file(f_name, naxis1, naxis2, dtype):

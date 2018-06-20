@@ -221,10 +221,6 @@ class Model:
         x, y = self.dataset.test
         logits = self.graph(x)
 
-        #tf.summary.image('input_image', x)
-        #tf.summary.image('output', Model._segmap(logits))
-        #tf.summary.image('label', Model._segmap(y))
-
         metrics = self.test_metrics(logits, y)
 
         return logits, metrics

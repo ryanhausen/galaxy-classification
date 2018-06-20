@@ -16,7 +16,7 @@ def main():
         'test_dir':'../report/tf-log/test/',
         'max_iters':10000,
         'batch_size':75,
-        'init_learning_rate':1e-3,
+        'init_learning_rate':1e-6,
         'data_dir':'../data/imgs',
         'label_dir':'../data/labels',
         'model_dir':'../models/curr/',
@@ -33,7 +33,7 @@ def main():
         current_iter = train(params)
         test(params)
 
-def eval_metrics(yh, y):
+def eval_metrics(yh, y, metrics_dict):
     """
     yh: network output [n,h,w,c]
     y:  labels         [n,h,w,c]
@@ -42,33 +42,35 @@ def eval_metrics(yh, y):
     thresholds = [0.5, 0.6, 0.7, 0.8, 0.9]
     classes = ['spheroid', 'disk', 'irregular', 'point_source', 'background']
 
-    running_ops = dict()
     with tf.name_scope('metrics'):
-
         # Cacluate the mean IOU for background/not background at each threshold
-        yh_bkg = tf.reshape(tf.nn.sigmoid(yh[:,:,:,-1]), [-1])
-        y_bkg = tf.reshape(y[:,:,:,-1], [-1])
-        for threshold in thresholds:
-            name = 'iou-{}'.format(threshold)
-            preds = tf.cast(tf.greater_equal(yh_bkg, threshold), tf.int32)
-            metric, update_op = tf.metrics.mean_iou(y_bkg, preds, 2, name=name)
-            running_ops[name] = update_op
-            tf.summary.scalar(name, metric)
+        with tf.name_scope('ious'):
+            yh_bkg = tf.reshape(tf.nn.sigmoid(yh[:,:,:,-1]), [-1])
+            y_bkg = tf.reshape(y[:,:,:,-1], [-1])
+            for threshold in thresholds:
+                name = 'iou-{}'.format(threshold)
+                with tf.name_scope(name):
+                    preds = tf.cast(tf.greater_equal(yh_bkg, threshold), tf.int32)
+                    metric, update_op = tf.metrics.mean_iou(y_bkg, preds, 2, name=name)
+                    metrics_dict[name] = update_op
+                    tf.summary.scalar(name, metric)
 
         # Calculate the accuracy per class per pixel
-        y = tf.reshape(y, [-1, 5])
-        yh = tf.reshape(yh, [-1, 5])
-        lbls = tf.argmax(y, 1)
-        preds = tf.argmax(yh, 1)
-        for i, c in enumerate(classes):
-            name = '{}-accuracy'.format(c)
-            in_c = tf.equal(lbls, i)
-            metric, update_op = tf.metrics.accuracy(lbls, preds, weights=in_c, name=name)
-            running_ops[name] = update_op
-            tf.summary.scalar(name, metric)
+        with tf.name_scope('accuracies'):
+            y = tf.reshape(y, [-1, 5])
+            yh = tf.reshape(yh, [-1, 5])
+            lbls = tf.argmax(y, 1)
+            preds = tf.argmax(yh, 1)
+            for i, c in enumerate(classes):
+                in_c = tf.equal(lbls, i)
+                metric, update_op = tf.metrics.accuracy(lbls,
+                                                        preds,
+                                                        weights=in_c,
+                                                        name=name)
+                metrics_dict[name] = update_op
+                tf.summary.scalar(name, metric)
 
-
-    return running_ops
+    return metrics_dict
 
 
 def train(params):
@@ -122,10 +124,10 @@ def train(params):
         dice_denominator = tf.reduce_sum(y_background + yh_background,
                                          axis=[1,2])
 
-        dice_loss = tf.reduce_mean(2 * dice_numerator / dice_denominator)
+        dice_loss = 1 - tf.reduce_mean(2 * dice_numerator / dice_denominator)
 
         total_loss = params['xentropy_coefficient'] * weighted_xentropy_loss
-        total_loss = total_loss + params['dice_coefficient'] * (1-dice_loss)
+        total_loss = total_loss + params['dice_coefficient'] * (dice_loss)
 
         with tf.name_scope('loss'):
             tf.summary.scalar('Cross Entropy', tf.reduce_mean(xentropy_loss))
@@ -154,11 +156,12 @@ def train(params):
         if params['data_format']=='channels_first':
             _logits = tf.transpose(logits, [0,2,3,1])
             _y = tf.transpose(y, [0,2,3,1])
-            running_metrics = eval_metrics(_logits, _y)
+            eval_metrics(_logits, _y, running_metrics)
         else:
-            running_metrics = eval_metrics(logits, y)
+            eval_metrics(logits, y, running_metrics)
 
         return logits, y
+
 
     Model.DATA_FORMAT = params['data_format']
     Model.BLOCK_CONFIG = params['block_config']
@@ -168,6 +171,7 @@ def train(params):
     model.loss_func = loss_func
 
     train = model.train()
+
     summaries = tf.summary.merge_all()
 
     metric_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope='metrics/*')
@@ -229,9 +233,9 @@ def test(params):
         if params['data_format']=='channels_first':
             _logits = tf.transpose(logits, [0,2,3,1])
             _y = tf.transpose(y, [0,2,3,1])
-            running_metrics = eval_metrics(_logits, _y)
+            eval_metrics(_logits, _y, running_metrics)
         else:
-            running_metrics = eval_metrics(logits, y)
+            eval_metrics(logits, y, running_metrics)
 
         return logits, y
 
@@ -267,6 +271,8 @@ def test(params):
 
         s = sess.run(summaries)
         writer.add_summary(s, iters.eval())
+        writer.flush()
+        writer.close()
 
 if __name__=='__main__':
     main()

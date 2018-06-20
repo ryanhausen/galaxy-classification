@@ -131,60 +131,65 @@ class Dataset:
     @staticmethod
     def _preprocess_data(x, y, is_training):
         # concatenate the arrays together so that they are changed the same
-        t = tf.concat([x, y], axis=-1)
+        with tf.name_scope('preprocessing'):
+            t = tf.concat([x, y], axis=-1)
 
-        if is_training:
-            t = Dataset._augment(t)
+            if is_training:
+                t = Dataset._augment(t)
 
-        t = Dataset._crop(t, is_training)
+            t = Dataset._crop(t, is_training)
 
-        # split them back up
-        x, y = t[:,:,:4], t[:,:,4:]
+            # split them back up
+            x, y = t[:,:,:4], t[:,:,4:]
 
-        x = Dataset._standardize(x)
-        y = Dataset._add_background(y)
+            x = Dataset._standardize(x)
+            y = Dataset._add_background(y)
 
-        return (x, y)
+            return (x, y)
 
     @staticmethod
     def _augment(t):
-        angle = tf.random_uniform([1], maxval=360)
-        t = tf.contrib.image.rotate(t, angle, interpolation='NEAREST')
-        t = tf.image.random_flip_left_right(t)
-        t = tf.image.random_flip_up_down(t)
+        with tf.name_scope('augmentation'):
+            angle = tf.random_uniform([1], maxval=360)
+            t = tf.contrib.image.rotate(t, angle, interpolation='NEAREST')
+            t = tf.image.random_flip_left_right(t)
+            t = tf.image.random_flip_up_down(t)
 
         return t
 
     @staticmethod
     def _standardize(x):
-        x = tf.image.per_image_standardization(x)
-        x = tf.reduce_mean(x, axis=-1, keepdims=True)
+        with tf.name_scope('standardize_image'):
+            x = tf.image.per_image_standardization(x)
+            x = tf.reduce_mean(x, axis=-1, keepdims=True)
         # taking the mean across channels collapses the last dimension.
         return x
 
     @staticmethod
     def _add_background(y):
-        highest_prob_per_pixel = tf.reduce_max(y, axis=-1, keepdims=True)
-        bkg_pos = tf.ones_like(highest_prob_per_pixel)
-        bkg_neg = tf.zeros_like(highest_prob_per_pixel)
-        bkg_actual = tf.where(highest_prob_per_pixel>0, bkg_neg, bkg_pos)
+        with tf.name_scope('add_background'):
+            highest_prob_per_pixel = tf.reduce_max(y, axis=-1, keepdims=True)
+            bkg_pos = tf.ones_like(highest_prob_per_pixel)
+            bkg_neg = tf.zeros_like(highest_prob_per_pixel)
+            bkg_actual = tf.where(highest_prob_per_pixel>0, bkg_neg, bkg_pos)
 
-        y = tf.concat([y, bkg_actual], -1)
+            y = tf.concat([y, bkg_actual], -1)
 
         return y
 
     @staticmethod
     def _crop(t, is_training):
-        out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, t.shape.as_list()[-1]]
+        with tf.name_scope('cropping'):
+            out_shape = [Dataset.IMG_OUT, Dataset.IMG_OUT, t.shape.as_list()[-1]]
 
-        if is_training:
-            # reduce the iamge size  so that random crops are less likely
-            # to exlude the entire source
-            t = tf.image.central_crop(t, Dataset.TRAIN_REDUCE_CROP/Dataset.IMG_IN)
-            t = tf.random_crop(t, out_shape)
-        else:
-            t = tf.image.central_crop(t, Dataset.IMG_OUT/Dataset.IMG_IN)
-            t.set_shape(out_shape)
+            if is_training:
+                # reduce the iamge size  so that random crops are less likely
+                # to exlude the entire source
+                t = tf.image.central_crop(t, Dataset.TRAIN_REDUCE_CROP/Dataset.IMG_IN)
+                t = tf.random_crop(t, out_shape)
+            else:
+                t = tf.image.central_crop(t, Dataset.IMG_OUT/Dataset.IMG_IN)
+                t.set_shape(out_shape)
 
         return t
 
