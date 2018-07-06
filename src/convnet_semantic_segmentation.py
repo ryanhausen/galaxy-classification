@@ -10,7 +10,7 @@ var_init = tf.variance_scaling_initializer
 class Model:
     NAME = 'convnet_semantic_segmentation'
     DATA_FORMAT = 'channels_first'
-    FILTER_COUNT = [64, 32, 16]
+    FILTER_COUNT = [128, 64, 32]
 
     def __init__(self, dataset, is_training):
         self.dataset = dataset
@@ -25,26 +25,10 @@ class Model:
         self._train_metrics = None
         self._test_metrics = None
 
-    def build_graph(self, x, output_pyramid=False):
-        """
-        Builds the graph.
-        INPUTS:
-        - x: input image tensor, given by dataset, in train() or test()
-        - output_pyramid: boolean, if true produces output at each upconv scaled
-                          resolution if false, only returns the output of at the
-                          final upscaled resolution.
-        RETURNS:
-        - a single tensor of [n, w, h, NUM_LABELS] if output_pyramid=True, else
-          returns a list of tensors of m [n, w/r, h/r, NUM_LABELS] m tensors
-          where r is the reduction factor associated with the downsample size at
-          that depth in the network.
-        """
-
-
+    def build_graph(self, x):
         if self._graph:
             return self._graph(x)
 
-        label_pyramid = []
         concat_axis = 1 if Model.DATA_FORMAT=='channels_first' else 3
 
         def model_fn(inputs):
@@ -68,25 +52,14 @@ class Model:
                                        concat_axis,
                                        name='concatenated')
                     inputs = Model.conv(inputs, f)
-                    if output_pyramid:
-                        label_pyramid.append(Model.conv(inputs,
-                                                        self.dataset.NUM_LABELS,
-                                                        activation=None,
-                                                        name='pyramid_conv'))
-
                     log.tensor_shape(inputs)
 
             with tf.variable_scope('out_conv'):
                 inputs = Model.conv(inputs,
                                     self.dataset.NUM_LABELS,
-                                    activation=None,
-                                    name='conv')
+                                    activation=None)
                 log.tensor_shape(inputs)
-
-            if output_pyramid:
-                return label_pyramid + [inputs]
-            else:
-                return inputs
+            return inputs
 
         self._graph = model_fn
         return self._graph(x)
@@ -96,8 +69,7 @@ class Model:
              num_filters,
              padding='same',
              strides=1,
-             activation=tf.nn.elu,
-             name='downconv'):
+             activation=tf.nn.relu):
         kernel_size = 3
         x = layers.conv2d(x,
                           num_filters,
@@ -107,7 +79,7 @@ class Model:
                           kernel_initializer=var_init,
                           use_bias=True,
                           data_format=Model.DATA_FORMAT,
-                          name=name)
+                          name='downconv')
 
         if activation:
             return tf.check_numerics(activation(x), 'numeric check failed')
@@ -230,12 +202,6 @@ class Model:
 
 
 def main():
-    info = f"""
-    CANDELS Morphological Classification -- Semantic Segmentation
-    ConvNet
-    FILTER_COUNT:   {Model.FILTER_COUNT}
-    DATA_FORMAT:    {Model.DATA_FORMAT}
-    """
 
     tf.logging.set_verbosity(tf.logging.DEBUG)
     print(info)
